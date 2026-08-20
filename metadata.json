@@ -1,0 +1,6 @@
+{
+  "name": "PNK EPI — ระบบงานระบาดวิทยา โรงพยาบาลโพนนาแก้ว",
+  "description": "ระบบสารสนเทศงานระบาดวิทยาและศูนย์ปฏิบัติการควบคุมโรค (Epi Command Center) โรงพยาบาลโพนนาแก้ว จ.สกลนคร ครอบคลุมการรับแจ้งโรค สอบสวนโรค ติดตามผู้สัมผัส จัดการเหตุการณ์ระบาด แผนที่ GIS และรายงาน 506",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
