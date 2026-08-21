@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldAlert, 
   Bell, 
@@ -15,9 +15,13 @@ import {
   Crown,
   MapPin,
   LogOut,
-  KeyRound
+  KeyRound,
+  Cloud,
+  Database,
+  CheckCircle2
 } from 'lucide-react';
 import { UserSession, RoleType, EpiAlert } from '../types';
+import { storageService } from '../services/storageService';
 
 interface HeaderProps {
   user: UserSession;
@@ -49,12 +53,15 @@ export const Header: React.FC<HeaderProps> = ({
   onResetData,
 }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState(storageService.getCloudSyncStatus());
   const unreadAlerts = alerts.filter(a => !a.isRead);
 
-  // Check if current user is from a subdistrict and has targeted unread alerts
-  const userSubdistrictAlerts = alerts.filter(
-    a => !a.isRead && user.assignedSubdistrict && a.targetSubdistrict === user.assignedSubdistrict
-  );
+  useEffect(() => {
+    const unsub = storageService.subscribe(() => {
+      setCloudStatus(storageService.getCloudSyncStatus());
+    });
+    return () => unsub();
+  }, []);
 
   const isAdmin = user.role === 'admin';
   const isPcu = user.role.startsWith('pcu_');
@@ -74,6 +81,18 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
               รพ.โพนนาแก้ว
             </span>
+            {/* Live Shared Firebase Badge */}
+            <div 
+              title="เชื่อมต่อฐานข้อมูล Google Cloud Firebase แบบ Realtime (ทุกคนที่เปิดลิงก์จะเห็นและแชร์ฐานข้อมูลเดียวกันทันที)"
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Firebase Cloud (แชร์ Realtime)</span>
+            </div>
           </div>
           <p className="text-xs text-slate-500 mt-0.5 truncate hidden md:block">
             ระบบสารสนเทศงานระบาดวิทยา & ศูนย์ปฏิบัติการควบคุมโรค จ.สกลนคร
@@ -207,8 +226,18 @@ export const Header: React.FC<HeaderProps> = ({
                   </p>
                 )}
                 
+                {/* Cloud sync status note */}
+                <div className="mt-2 pt-2 border-t border-slate-200 flex items-center justify-between text-[10px]">
+                  <span className="text-slate-600 flex items-center gap-1">
+                    <Cloud className="w-3.5 h-3.5 text-emerald-600" /> ฐานข้อมูล:
+                  </span>
+                  <span className="text-emerald-700 font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Firebase Realtime
+                  </span>
+                </div>
+
                 {/* Security Note on Deletion */}
-                <div className="mt-2 pt-2 border-t border-slate-200 text-[10px]">
+                <div className="mt-1 pt-1 border-t border-slate-200 text-[10px]">
                   {isAdmin ? (
                     <span className="text-purple-700 font-bold flex items-center gap-1">
                       <Crown className="w-3 h-3" /> คุณมีสิทธิ์ลบข้อมูลผู้ป่วยและรายงาน
@@ -253,7 +282,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                 <button
                   onClick={() => {
-                    if (confirm('ต้องการรีเซ็ตข้อมูลตัวอย่างกลับเป็นค่าเริ่มต้นหรือไม่?')) {
+                    if (confirm('ต้องการรีเซ็ตและซิงค์ข้อมูลเริ่มต้นไปยัง Firebase Cloud หรือไม่?')) {
                       onResetData();
                       setShowProfileMenu(false);
                     }
@@ -261,7 +290,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className="w-full text-left px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-                  <span>รีเซ็ตข้อมูลตัวอย่าง (Reset Data)</span>
+                  <span>ซิงค์ข้อมูลตัวอย่างเริ่มต้น (Reset Cloud Data)</span>
                 </button>
 
                 {onLogout && (

@@ -146,7 +146,14 @@ export function App() {
 
   // Load initial data and check for URL params (Android & iOS direct links)
   useEffect(() => {
+    storageService.initData();
+    authService.initAuthListener();
     loadAllData();
+
+    // Subscribe to live Firestore Cloud updates
+    const unsubscribe = storageService.subscribe(() => {
+      loadAllData();
+    });
 
     // Check for direct GPS survey URL parameter (?gps_case_id=xxx)
     const urlParams = new URLSearchParams(window.location.search);
@@ -159,6 +166,10 @@ export function App() {
         setIsMobileSurveyOpen(true);
       }
     }
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const loadAllData = () => {

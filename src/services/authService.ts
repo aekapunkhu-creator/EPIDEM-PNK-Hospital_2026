@@ -1,7 +1,15 @@
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot
+} from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from './firebase';
 import { UserAccount, UserSession, RoleType, UserStatus } from '../types';
 
 const AUTH_STORAGE_KEY = 'pnk_epi_current_user_v1';
-const USERS_STORAGE_KEY = 'pnk_epi_users_accounts_v1';
+const USERS_STORAGE_KEY = 'pnk_epi_users_accounts_v2';
 
 // Initial pre-configured user accounts with distinct roles and subdistrict assignments
 export const INITIAL_USER_ACCOUNTS: UserAccount[] = [
@@ -197,7 +205,6 @@ export const INITIAL_USER_ACCOUNTS: UserAccount[] = [
     approvedAt: '2026-01-12T10:30:00.000Z',
     approvedBy: 'นายอดิศักดิ์ ศรีวิชัย (Admin)'
   },
-  // ตัวอย่างบัญชีรออนุมัติ (Pending Approval) สำหรับ Admin จัดการ
   {
     id: 'usr_pcu_trainee_1',
     username: 'trainee_nakaeo',
@@ -215,9 +222,48 @@ export const INITIAL_USER_ACCOUNTS: UserAccount[] = [
   }
 ];
 
+let cachedAccounts: UserAccount[] = [];
+let isAuthListenerInitialized = false;
+
 export const authService = {
+  // Initialize and attach Firestore listener for accounts
+  initAuthListener(): void {
+    if (isAuthListenerInitialized) return;
+    isAuthListenerInitialized = true;
+
+    // Load initial local
+    const raw = localStorage.getItem(USERS_STORAGE_KEY);
+    cachedAccounts = raw ? JSON.parse(raw) : INITIAL_USER_ACCOUNTS;
+
+    try {
+      onSnapshot(collection(db, 'user_accounts'), async (snapshot) => {
+        if (snapshot.empty) {
+          // Seed accounts to Firestore
+          for (const acc of INITIAL_USER_ACCOUNTS) {
+            await setDoc(doc(db, 'user_accounts', acc.id), acc);
+          }
+          return;
+        }
+
+        const accounts: UserAccount[] = [];
+        snapshot.forEach(docSnap => {
+          accounts.push(docSnap.data() as UserAccount);
+        });
+
+        cachedAccounts = accounts;
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(accounts));
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, 'user_accounts');
+      });
+    } catch (e) {
+      console.error('Error starting user accounts Firestore sync', e);
+    }
+  },
+
   // Get all user accounts
   getAccounts(): UserAccount[] {
+    this.initAuthListener();
+    if (cachedAccounts.length > 0) return cachedAccounts;
     const raw = localStorage.getItem(USERS_STORAGE_KEY);
     if (!raw) {
       localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(INITIAL_USER_ACCOUNTS));
@@ -225,7 +271,6 @@ export const authService = {
     }
     try {
       const parsed: UserAccount[] = JSON.parse(raw);
-      // Ensure each account has a status
       return parsed.map(acc => ({
         ...acc,
         status: acc.status || 'active'
@@ -237,6 +282,7 @@ export const authService = {
 
   // Save accounts
   saveAccounts(accounts: UserAccount[]): void {
+    cachedAccounts = accounts;
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(accounts));
   },
 
@@ -264,7 +310,13 @@ export const authService = {
 
     accounts.push(newAccount);
     this.saveAccounts(accounts);
-    return { success: true, message: `เพิ่มผู้ใช้งาน "${newAccount.name}" เรียบร้อยแล้ว`, account: newAccount };
+
+    // Save to Firestore asynchronously
+    setDoc(doc(db, 'user_accounts', newAccount.id), newAccount).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `user_accounts/${newAccount.id}`);
+    });
+
+    return { success: true, message: `เพิ่มผู้ใช้งาน "${newAccount.name}" เรียบร้อยแล้ว (บันทึกลง Cloud Firestore)`, account: newAccount };
   },
 
   // Edit / Update existing user account (Admin feature)
@@ -299,9 +351,14 @@ export const authService = {
     accounts[index] = updatedAccount;
     this.saveAccounts(accounts);
 
+    // Save to Firestore asynchronously
+    setDoc(doc(db, 'user_accounts', id), updatedAccount).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `user_accounts/${id}`);
+    });
+
     // If updating current logged in user, refresh session
     const currentSession = this.getCurrentUser();
-    if (currentSession.userId === id) {
+    if (currentSession && currentSession.userId === id) {
       const updatedSession: UserSession = {
         ...currentSession,
         name: updatedAccount.name,
@@ -313,9 +370,10 @@ export const authService = {
         username: updatedAccount.username
       };
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedSession));
+      sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedSession));
     }
 
-    return { success: true, message: `แก้ไขข้อมูลผู้ใช้งาน "${updatedAccount.name}" สำเร็จ`, account: updatedAccount };
+    return { success: true, message: `แก้ไขข้อมูลผู้ใช้งาน "${updatedAccount.name}" สำเร็จ (ซิงค์ Cloud เรียบร้อย)`, account: updatedAccount };
   },
 
   // Delete user account (Admin feature)
@@ -339,24 +397,17 @@ export const authService = {
 
     const filtered = accounts.filter(a => a.id !== id);
     this.saveAccounts(filtered);
+
+    deleteDoc(doc(db, 'user_accounts', id)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `user_accounts/${id}`);
+    });
+
     return { success: true, message: `ลบบัญชีผู้ใช้งาน "${target.name}" ออกจากระบบเรียบร้อยแล้ว` };
   },
 
   // Approve a user account (Admin feature)
   approveAccount(id: string, adminName: string): { success: boolean; message: string; account?: UserAccount } {
-    const accounts = this.getAccounts();
-    const account = accounts.find(a => a.id === id);
-
-    if (!account) {
-      return { success: false, message: 'ไม่พบบัญชีผู้ใช้งาน' };
-    }
-
-    account.status = 'active';
-    account.approvedAt = new Date().toISOString();
-    account.approvedBy = adminName;
-
-    this.saveAccounts(accounts);
-    return { success: true, message: `อนุมัติเปิดใช้งานบัญชี "${account.name}" สำเร็จ`, account };
+    return this.setAccountStatus(id, 'active', adminName);
   },
 
   // Toggle or change account status (Active, Pending, Suspended)
@@ -379,6 +430,11 @@ export const authService = {
     }
 
     this.saveAccounts(accounts);
+
+    setDoc(doc(db, 'user_accounts', id), account).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `user_accounts/${id}`);
+    });
+
     const statusText = status === 'active' ? 'อนุมัติเปิดใช้งาน' : status === 'pending' ? 'ตั้งค่ารออนุมัติ' : 'ระงับการใช้งานชั่วคราว';
     return { success: true, message: `${statusText} บัญชี "${account.name}" สำเร็จ`, account };
   },
@@ -403,6 +459,7 @@ export const authService = {
 
   // Authenticate user with username and password with status checks
   login(username: string, password: string): { success: boolean; message: string; user?: UserSession } {
+    this.initAuthListener();
     const accounts = this.getAccounts();
     const account = accounts.find(
       a => a.username.trim().toLowerCase() === username.trim().toLowerCase()
@@ -451,6 +508,7 @@ export const authService = {
 
   // Quick switch (for demo / fast testing)
   quickSwitchAccount(accountId: string): UserSession | null {
+    this.initAuthListener();
     const accounts = this.getAccounts();
     const account = accounts.find(a => a.id === accountId);
     if (!account || account.status === 'suspended') return null;
@@ -495,7 +553,10 @@ export const authService = {
   // Reset accounts to default initial list
   resetAccounts(): UserAccount[] {
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(INITIAL_USER_ACCOUNTS));
+    cachedAccounts = INITIAL_USER_ACCOUNTS;
+    for (const acc of INITIAL_USER_ACCOUNTS) {
+      setDoc(doc(db, 'user_accounts', acc.id), acc).catch(console.error);
+    }
     return INITIAL_USER_ACCOUNTS;
   }
 };
-

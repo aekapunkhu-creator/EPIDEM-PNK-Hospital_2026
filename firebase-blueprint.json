@@ -1,0 +1,219 @@
+{
+  "entities": {
+    "DiseaseReport": {
+      "title": "DiseaseReport",
+      "description": "506 Surveillance Disease Notification Record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patient": { "type": "object" },
+        "disease": { "type": "string" },
+        "diseaseNameTh": { "type": "string" },
+        "icd10": { "type": "string" },
+        "caseType": { "type": "string" },
+        "onsetDate": { "type": "string" },
+        "visitDate": { "type": "string" },
+        "reportDate": { "type": "string" },
+        "reportingUnit": { "type": "string" },
+        "reporterName": { "type": "string" },
+        "reporterRole": { "type": "string" },
+        "chiefComplaint": { "type": "string" },
+        "symptoms": { "type": "array" },
+        "isAdmitted": { "type": "boolean" },
+        "admissionWard": { "type": "string" },
+        "labResult": { "type": "object" },
+        "status": { "type": "string" },
+        "investigationId": { "type": "string" },
+        "outbreakId": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "disease", "caseType", "reportDate", "reportingUnit", "status"]
+    },
+    "Investigation": {
+      "title": "Investigation",
+      "description": "SRRT Epidemiological Field Investigation Case",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reportId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "investigatorName": { "type": "string" },
+        "investigatorTeam": { "type": "string" },
+        "investigationDate": { "type": "string" },
+        "clinicalSummary": { "type": "string" },
+        "timeline": { "type": "array" },
+        "risks": { "type": "object" },
+        "probableSourceOfInfection": { "type": "string" },
+        "epidemiologicalLink": { "type": "string" },
+        "contactsIdentifiedCount": { "type": "number" },
+        "actionTaken": { "type": "array" },
+        "recommendations": { "type": "array" },
+        "aiAnalysisSummary": { "type": "string" },
+        "status": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "completedAt": { "type": "string" }
+      },
+      "required": ["id", "reportId", "investigatorName", "investigationDate", "status"]
+    },
+    "ContactPerson": {
+      "title": "ContactPerson",
+      "description": "Contact Tracing Person",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reportId": { "type": "string" },
+        "caseHn": { "type": "string" },
+        "caseName": { "type": "string" },
+        "caseDisease": { "type": "string" },
+        "name": { "type": "string" },
+        "age": { "type": "number" },
+        "gender": { "type": "string" },
+        "relationship": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "subdistrict": { "type": "string" },
+        "villageName": { "type": "string" },
+        "exposureDate": { "type": "string" },
+        "exposureType": { "type": "string" },
+        "riskLevel": { "type": "string" },
+        "status": { "type": "string" },
+        "monitoringDays": { "type": "number" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "dailyLogs": { "type": "array" },
+        "prophylaxisGiven": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "name", "relationship", "riskLevel", "status"]
+    },
+    "ControlActivity": {
+      "title": "ControlActivity",
+      "description": "Disease Control Measure Activity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "targetLocation": { "type": "string" },
+        "subdistrict": { "type": "string" },
+        "villageName": { "type": "string" },
+        "relatedDisease": { "type": "string" },
+        "relatedReportId": { "type": "string" },
+        "relatedOutbreakId": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "completedDate": { "type": "string" },
+        "isCompleted": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "indicatorResult": { "type": "string" }
+      },
+      "required": ["id", "title", "category", "targetLocation", "subdistrict", "assignedTo", "dueDate", "isCompleted"]
+    },
+    "OutbreakEvent": {
+      "title": "OutbreakEvent",
+      "description": "Epidemic Outbreak Event Cluster",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "disease": { "type": "string" },
+        "diseaseNameTh": { "type": "string" },
+        "subdistrict": { "type": "string" },
+        "villageName": { "type": "string" },
+        "specificLocation": { "type": "string" },
+        "casesCount": { "type": "number" },
+        "deathsCount": { "type": "number" },
+        "attackRate": { "type": "number" },
+        "firstCaseDate": { "type": "string" },
+        "latestCaseDate": { "type": "string" },
+        "status": { "type": "string" },
+        "leaderName": { "type": "string" },
+        "incidentCommander": { "type": "string" },
+        "eocActivated": { "type": "boolean" },
+        "caseIds": { "type": "array" },
+        "summary": { "type": "string" },
+        "actionsSummary": { "type": "string" },
+        "aiStrategy": { "type": "string" }
+      },
+      "required": ["id", "title", "disease", "subdistrict", "status"]
+    },
+    "EpiAlert": {
+      "title": "EpiAlert",
+      "description": "Surveillance Early Warning Alert",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "severity": { "type": "string" },
+        "date": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "relatedId": { "type": "string" },
+        "targetSubdistrict": { "type": "string" },
+        "outbreakId": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "required": ["id", "title", "message", "severity", "date", "isRead"]
+    },
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Hospital & Health Station Staff Account",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "department": { "type": "string" },
+        "hospital": { "type": "string" },
+        "assignedSubdistrict": { "type": "string" },
+        "pcuName": { "type": "string" },
+        "phone": { "type": "string" },
+        "canDelete": { "type": "boolean" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "approvedAt": { "type": "string" },
+        "approvedBy": { "type": "string" }
+      },
+      "required": ["id", "username", "name", "role", "status"]
+    }
+  },
+  "firestore": {
+    "/reports/{reportId}": {
+      "schema": "DiseaseReport",
+      "description": "Central 506 Disease Surveillance reports collection"
+    },
+    "/investigations/{investigationId}": {
+      "schema": "Investigation",
+      "description": "SRRT Investigation cases"
+    },
+    "/contacts/{contactId}": {
+      "schema": "ContactPerson",
+      "description": "Contact tracing records"
+    },
+    "/control_activities/{activityId}": {
+      "schema": "ControlActivity",
+      "description": "Public health control activities"
+    },
+    "/outbreaks/{outbreakId}": {
+      "schema": "OutbreakEvent",
+      "description": "Outbreak events and clusters"
+    },
+    "/alerts/{alertId}": {
+      "schema": "EpiAlert",
+      "description": "Surveillance early warning alerts"
+    },
+    "/user_accounts/{accountId}": {
+      "schema": "UserAccount",
+      "description": "Authorized staff and PCU user accounts"
+    },
+    "/meta/{metaId}": {
+      "schema": "object",
+      "description": "System metadata and connection checks"
+    }
+  }
+}

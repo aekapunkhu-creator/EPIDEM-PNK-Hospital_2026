@@ -1,4 +1,13 @@
 import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  getDocs
+} from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from './firebase';
+import {
   DiseaseReport,
   Investigation,
   ContactPerson,
@@ -26,29 +35,232 @@ const STORAGE_KEYS = {
   CONTROL_ACTIVITIES: 'pnk_epi_control_activities',
   OUTBREAKS: 'pnk_epi_outbreaks',
   ALERTS: 'pnk_epi_alerts',
-  INITIALIZED: 'pnk_epi_initialized_v3',
+  INITIALIZED: 'pnk_epi_initialized_v4',
 };
 
+// In-memory synced stores
+let cachedReports: DiseaseReport[] = [];
+let cachedInvestigations: Investigation[] = [];
+let cachedContacts: ContactPerson[] = [];
+let cachedControlActivities: ControlActivity[] = [];
+let cachedOutbreaks: OutbreakEvent[] = [];
+let cachedAlerts: EpiAlert[] = [];
+
+// Subscribers list
+type SyncListener = () => void;
+const listeners = new Set<SyncListener>();
+
+let isFirebaseConnected = false;
+let isInitialized = false;
+let isSeeding = false;
+let lastSyncTimestamp: Date = new Date();
+
+function notifyListeners() {
+  lastSyncTimestamp = new Date();
+  listeners.forEach(fn => {
+    try {
+      fn();
+    } catch (e) {
+      console.error('Error in sync listener', e);
+    }
+  });
+}
+
 export const storageService = {
-  // Initialize default data if empty
+  // Subscribe to live cloud data updates
+  subscribe(listener: SyncListener): () => void {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+
+  getCloudSyncStatus(): { isConnected: boolean; lastSync: Date } {
+    return {
+      isConnected: isFirebaseConnected,
+      lastSync: lastSyncTimestamp
+    };
+  },
+
+  // Initialize data and real-time Firestore listeners
   initData(): void {
-    if (!localStorage.getItem(STORAGE_KEYS.INITIALIZED)) {
-      this.resetToDefaults();
-      localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+    if (isInitialized) return;
+    isInitialized = true;
+
+    // Load from local storage first for instant render
+    this.loadLocalCache();
+
+    // Attach Firestore Real-time Listeners
+    this.initFirestoreRealtimeListeners();
+  },
+
+  loadLocalCache(): void {
+    try {
+      const rep = localStorage.getItem(STORAGE_KEYS.REPORTS);
+      cachedReports = rep ? JSON.parse(rep) : INITIAL_REPORTS;
+
+      const inv = localStorage.getItem(STORAGE_KEYS.INVESTIGATIONS);
+      cachedInvestigations = inv ? JSON.parse(inv) : INITIAL_INVESTIGATIONS;
+
+      const con = localStorage.getItem(STORAGE_KEYS.CONTACTS);
+      cachedContacts = con ? JSON.parse(con) : INITIAL_CONTACTS;
+
+      const act = localStorage.getItem(STORAGE_KEYS.CONTROL_ACTIVITIES);
+      cachedControlActivities = act ? JSON.parse(act) : INITIAL_CONTROL_ACTIVITIES;
+
+      const out = localStorage.getItem(STORAGE_KEYS.OUTBREAKS);
+      cachedOutbreaks = out ? JSON.parse(out) : INITIAL_OUTBREAKS;
+
+      const alt = localStorage.getItem(STORAGE_KEYS.ALERTS);
+      cachedAlerts = alt ? JSON.parse(alt) : INITIAL_ALERTS;
+    } catch (e) {
+      console.error('Error loading local cache', e);
+    }
+  },
+
+  async seedInitialFirestoreData(): Promise<void> {
+    if (isSeeding) return;
+    isSeeding = true;
+    try {
+      console.log('Seeding initial Phon Na Kaeo data to Firestore...');
+      // Seed Reports
+      for (const rep of INITIAL_REPORTS) {
+        await setDoc(doc(db, 'reports', rep.id), rep);
+      }
+      // Seed Investigations
+      for (const inv of INITIAL_INVESTIGATIONS) {
+        await setDoc(doc(db, 'investigations', inv.id), inv);
+      }
+      // Seed Contacts
+      for (const con of INITIAL_CONTACTS) {
+        await setDoc(doc(db, 'contacts', con.id), con);
+      }
+      // Seed Activities
+      for (const act of INITIAL_CONTROL_ACTIVITIES) {
+        await setDoc(doc(db, 'control_activities', act.id), act);
+      }
+      // Seed Outbreaks
+      for (const out of INITIAL_OUTBREAKS) {
+        await setDoc(doc(db, 'outbreaks', out.id), out);
+      }
+      // Seed Alerts
+      for (const alt of INITIAL_ALERTS) {
+        await setDoc(doc(db, 'alerts', alt.id), alt);
+      }
+      console.log('Firestore seed complete!');
+    } catch (err) {
+      console.error('Failed to seed initial Firestore data:', err);
+    } finally {
+      isSeeding = false;
+    }
+  },
+
+  initFirestoreRealtimeListeners(): void {
+    try {
+      // 1. Reports Listener
+      onSnapshot(collection(db, 'reports'), async (snapshot) => {
+        isFirebaseConnected = true;
+        if (snapshot.empty && !localStorage.getItem(STORAGE_KEYS.INITIALIZED)) {
+          localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+          await this.seedInitialFirestoreData();
+          return;
+        }
+        if (!snapshot.empty) {
+          const items: DiseaseReport[] = [];
+          snapshot.forEach(docSnap => items.push(docSnap.data() as DiseaseReport));
+          // Sort by reportDate or createdAt descending
+          items.sort((a, b) => new Date(b.reportDate || b.createdAt).getTime() - new Date(a.reportDate || a.createdAt).getTime());
+          cachedReports = items;
+          localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(items));
+          notifyListeners();
+        }
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, 'reports');
+      });
+
+      // 2. Investigations Listener
+      onSnapshot(collection(db, 'investigations'), (snapshot) => {
+        isFirebaseConnected = true;
+        if (!snapshot.empty) {
+          const items: Investigation[] = [];
+          snapshot.forEach(docSnap => items.push(docSnap.data() as Investigation));
+          items.sort((a, b) => new Date(b.investigationDate).getTime() - new Date(a.investigationDate).getTime());
+          cachedInvestigations = items;
+          localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(items));
+          notifyListeners();
+        }
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, 'investigations');
+      });
+
+      // 3. Contacts Listener
+      onSnapshot(collection(db, 'contacts'), (snapshot) => {
+        isFirebaseConnected = true;
+        if (!snapshot.empty) {
+          const items: ContactPerson[] = [];
+          snapshot.forEach(docSnap => items.push(docSnap.data() as ContactPerson));
+          cachedContacts = items;
+          localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(items));
+          notifyListeners();
+        }
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, 'contacts');
+      });
+
+      // 4. Control Activities Listener
+      onSnapshot(collection(db, 'control_activities'), (snapshot) => {
+        isFirebaseConnected = true;
+        if (!snapshot.empty) {
+          const items: ControlActivity[] = [];
+          snapshot.forEach(docSnap => items.push(docSnap.data() as ControlActivity));
+          items.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+          cachedControlActivities = items;
+          localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(items));
+          notifyListeners();
+        }
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, 'control_activities');
+      });
+
+      // 5. Outbreaks Listener
+      onSnapshot(collection(db, 'outbreaks'), (snapshot) => {
+        isFirebaseConnected = true;
+        if (!snapshot.empty) {
+          const items: OutbreakEvent[] = [];
+          snapshot.forEach(docSnap => items.push(docSnap.data() as OutbreakEvent));
+          cachedOutbreaks = items;
+          localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify(items));
+          notifyListeners();
+        }
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, 'outbreaks');
+      });
+
+      // 6. Alerts Listener
+      onSnapshot(collection(db, 'alerts'), (snapshot) => {
+        isFirebaseConnected = true;
+        if (!snapshot.empty) {
+          const items: EpiAlert[] = [];
+          snapshot.forEach(docSnap => items.push(docSnap.data() as EpiAlert));
+          items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          cachedAlerts = items;
+          localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(items));
+          notifyListeners();
+        }
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, 'alerts');
+      });
+
+    } catch (e) {
+      console.error('Error starting Firestore realtime listeners', e);
     }
   },
 
   resetToDefaults(): void {
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(INITIAL_USER));
-    localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(INITIAL_REPORTS));
-    localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(INITIAL_INVESTIGATIONS));
-    localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(INITIAL_CONTACTS));
-    localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(INITIAL_CONTROL_ACTIVITIES));
-    localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify(INITIAL_OUTBREAKS));
-    localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(INITIAL_ALERTS));
+    this.seedInitialFirestoreData();
   },
 
-  // User
+  // User Session Management
   getUser(): UserSession {
     const raw = localStorage.getItem(STORAGE_KEYS.USER);
     return raw ? JSON.parse(raw) : INITIAL_USER;
@@ -110,53 +322,58 @@ export const storageService = {
     return user;
   },
 
-  // Reports (506 & Disease Intake)
+  // 1. Reports (506 & Disease Intake)
   getReports(): DiseaseReport[] {
+    if (cachedReports.length > 0) return cachedReports;
     const raw = localStorage.getItem(STORAGE_KEYS.REPORTS);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? JSON.parse(raw) : INITIAL_REPORTS;
   },
 
-  saveReport(report: DiseaseReport): void {
-    const reports = this.getReports();
+  async saveReport(report: DiseaseReport): Promise<void> {
+    const reports = [...this.getReports()];
     const index = reports.findIndex(r => r.id === report.id);
+    const updatedReport: DiseaseReport = {
+      ...report,
+      updatedAt: new Date().toISOString(),
+      createdAt: report.createdAt || new Date().toISOString()
+    };
+
     if (index >= 0) {
-      reports[index] = { ...report, updatedAt: new Date().toISOString() };
+      reports[index] = updatedReport;
     } else {
-      reports.unshift({ ...report, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      reports.unshift(updatedReport);
     }
+
+    cachedReports = reports;
     localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(reports));
+    notifyListeners();
+
+    // Persist to Cloud Firestore
+    try {
+      await setDoc(doc(db, 'reports', updatedReport.id), updatedReport);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `reports/${updatedReport.id}`);
+    }
   },
 
-  deleteReport(id: string): void {
+  async deleteReport(id: string): Promise<void> {
     const reports = this.getReports().filter(r => r.id !== id);
+    cachedReports = reports;
     localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(reports));
-  },
+    notifyListeners();
 
-  deleteInvestigation(id: string): void {
-    const investigations = this.getInvestigations().filter(i => i.id !== id);
-    localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(investigations));
-  },
-
-  resetToDefault(): void {
-    this.resetToDefaults();
-  },
-
-  toggleControlActivity(id: string): void {
-    const activities = this.getControlActivities();
-    const activity = activities.find(a => a.id === id);
-    if (activity) {
-      activity.isCompleted = !activity.isCompleted;
-      if (activity.isCompleted) {
-        activity.completedDate = new Date().toISOString().split('T')[0];
-      } else {
-        activity.completedDate = undefined;
-      }
-      this.saveControlActivity(activity);
+    try {
+      await deleteDoc(doc(db, 'reports', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `reports/${id}`);
     }
   },
+
+  // 2. Investigations
   getInvestigations(): Investigation[] {
+    if (cachedInvestigations.length > 0) return cachedInvestigations;
     const raw = localStorage.getItem(STORAGE_KEYS.INVESTIGATIONS);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? JSON.parse(raw) : INITIAL_INVESTIGATIONS;
   },
 
   getInvestigationById(id: string): Investigation | undefined {
@@ -167,17 +384,18 @@ export const storageService = {
     return this.getInvestigations().find(inv => inv.reportId === reportId);
   },
 
-  saveInvestigation(investigation: Investigation): void {
-    const investigations = this.getInvestigations();
+  async saveInvestigation(investigation: Investigation): Promise<void> {
+    const investigations = [...this.getInvestigations()];
     const index = investigations.findIndex(inv => inv.id === investigation.id);
     if (index >= 0) {
       investigations[index] = investigation;
     } else {
       investigations.unshift(investigation);
     }
+    cachedInvestigations = investigations;
     localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(investigations));
 
-    // Update corresponding report status
+    // Update corresponding report status if needed
     const report = this.getReports().find(r => r.id === investigation.reportId);
     if (report) {
       report.investigationId = investigation.id;
@@ -188,93 +406,195 @@ export const storageService = {
       }
       this.saveReport(report);
     }
+
+    notifyListeners();
+
+    try {
+      await setDoc(doc(db, 'investigations', investigation.id), investigation);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `investigations/${investigation.id}`);
+    }
   },
 
-  // Contacts
+  async deleteInvestigation(id: string): Promise<void> {
+    const investigations = this.getInvestigations().filter(i => i.id !== id);
+    cachedInvestigations = investigations;
+    localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(investigations));
+    notifyListeners();
+
+    try {
+      await deleteDoc(doc(db, 'investigations', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `investigations/${id}`);
+    }
+  },
+
+  // 3. Contacts
   getContacts(): ContactPerson[] {
+    if (cachedContacts.length > 0) return cachedContacts;
     const raw = localStorage.getItem(STORAGE_KEYS.CONTACTS);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? JSON.parse(raw) : INITIAL_CONTACTS;
   },
 
-  saveContact(contact: ContactPerson): void {
-    const contacts = this.getContacts();
+  async saveContact(contact: ContactPerson): Promise<void> {
+    const contacts = [...this.getContacts()];
     const index = contacts.findIndex(c => c.id === contact.id);
     if (index >= 0) {
       contacts[index] = contact;
     } else {
       contacts.unshift(contact);
     }
+    cachedContacts = contacts;
     localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(contacts));
+    notifyListeners();
+
+    try {
+      await setDoc(doc(db, 'contacts', contact.id), contact);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `contacts/${contact.id}`);
+    }
   },
 
-  deleteContact(id: string): void {
+  async deleteContact(id: string): Promise<void> {
     const contacts = this.getContacts().filter(c => c.id !== id);
+    cachedContacts = contacts;
     localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(contacts));
+    notifyListeners();
+
+    try {
+      await deleteDoc(doc(db, 'contacts', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `contacts/${id}`);
+    }
   },
 
-  // Control Activities
+  // 4. Control Activities
   getControlActivities(): ControlActivity[] {
+    if (cachedControlActivities.length > 0) return cachedControlActivities;
     const raw = localStorage.getItem(STORAGE_KEYS.CONTROL_ACTIVITIES);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? JSON.parse(raw) : INITIAL_CONTROL_ACTIVITIES;
   },
 
-  saveControlActivity(activity: ControlActivity): void {
-    const activities = this.getControlActivities();
+  async saveControlActivity(activity: ControlActivity): Promise<void> {
+    const activities = [...this.getControlActivities()];
     const index = activities.findIndex(a => a.id === activity.id);
     if (index >= 0) {
       activities[index] = activity;
     } else {
       activities.unshift(activity);
     }
+    cachedControlActivities = activities;
     localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(activities));
+    notifyListeners();
+
+    try {
+      await setDoc(doc(db, 'control_activities', activity.id), activity);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `control_activities/${activity.id}`);
+    }
   },
 
-  deleteControlActivity(id: string): void {
+  async toggleControlActivity(id: string): Promise<void> {
+    const activities = this.getControlActivities();
+    const activity = activities.find(a => a.id === id);
+    if (activity) {
+      activity.isCompleted = !activity.isCompleted;
+      if (activity.isCompleted) {
+        activity.completedDate = new Date().toISOString().split('T')[0];
+      } else {
+        activity.completedDate = undefined;
+      }
+      await this.saveControlActivity(activity);
+    }
+  },
+
+  async deleteControlActivity(id: string): Promise<void> {
     const activities = this.getControlActivities().filter(a => a.id !== id);
+    cachedControlActivities = activities;
     localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(activities));
+    notifyListeners();
+
+    try {
+      await deleteDoc(doc(db, 'control_activities', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `control_activities/${id}`);
+    }
   },
 
-  // Outbreaks
+  // 5. Outbreaks
   getOutbreaks(): OutbreakEvent[] {
+    if (cachedOutbreaks.length > 0) return cachedOutbreaks;
     const raw = localStorage.getItem(STORAGE_KEYS.OUTBREAKS);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? JSON.parse(raw) : INITIAL_OUTBREAKS;
   },
 
-  saveOutbreak(outbreak: OutbreakEvent): void {
-    const outbreaks = this.getOutbreaks();
+  async saveOutbreak(outbreak: OutbreakEvent): Promise<void> {
+    const outbreaks = [...this.getOutbreaks()];
     const index = outbreaks.findIndex(o => o.id === outbreak.id);
     if (index >= 0) {
       outbreaks[index] = outbreak;
     } else {
       outbreaks.unshift(outbreak);
     }
+    cachedOutbreaks = outbreaks;
     localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify(outbreaks));
+    notifyListeners();
+
+    try {
+      await setDoc(doc(db, 'outbreaks', outbreak.id), outbreak);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `outbreaks/${outbreak.id}`);
+    }
   },
 
-  // Alerts
+  // 6. Alerts
   getAlerts(): EpiAlert[] {
+    if (cachedAlerts.length > 0) return cachedAlerts;
     const raw = localStorage.getItem(STORAGE_KEYS.ALERTS);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? JSON.parse(raw) : INITIAL_ALERTS;
   },
 
-  markAlertAsRead(id: string): void {
+  async markAlertAsRead(id: string): Promise<void> {
     const alerts = this.getAlerts().map(a => a.id === id ? { ...a, isRead: true } : a);
+    cachedAlerts = alerts;
     localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(alerts));
+    notifyListeners();
+
+    const targetAlert = alerts.find(a => a.id === id);
+    if (targetAlert) {
+      try {
+        await setDoc(doc(db, 'alerts', id), targetAlert);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `alerts/${id}`);
+      }
+    }
   },
 
-  saveAlert(alert: EpiAlert): void {
-    const alerts = this.getAlerts();
+  async saveAlert(alert: EpiAlert): Promise<void> {
+    const alerts = [...this.getAlerts()];
     const index = alerts.findIndex(a => a.id === alert.id);
     if (index >= 0) {
       alerts[index] = alert;
     } else {
       alerts.unshift(alert);
     }
+    cachedAlerts = alerts;
     localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(alerts));
+    notifyListeners();
+
+    try {
+      await setDoc(doc(db, 'alerts', alert.id), alert);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `alerts/${alert.id}`);
+    }
   },
 
   addAlert(alert: EpiAlert): void {
     this.saveAlert(alert);
+  },
+
+  resetToDefault(): void {
+    this.seedInitialFirestoreData();
   },
 
   // Full Backup / Export
@@ -293,15 +613,39 @@ export const storageService = {
   },
 
   // Import JSON
-  importJson(jsonString: string): boolean {
+  async importJson(jsonString: string): Promise<boolean> {
     try {
       const data = JSON.parse(jsonString);
-      if (data.reports) localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(data.reports));
-      if (data.investigations) localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(data.investigations));
-      if (data.contacts) localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(data.contacts));
-      if (data.controlActivities) localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(data.controlActivities));
-      if (data.outbreaks) localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify(data.outbreaks));
-      if (data.alerts) localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(data.alerts));
+      if (Array.isArray(data.reports)) {
+        for (const r of data.reports) {
+          await this.saveReport(r);
+        }
+      }
+      if (Array.isArray(data.investigations)) {
+        for (const i of data.investigations) {
+          await this.saveInvestigation(i);
+        }
+      }
+      if (Array.isArray(data.contacts)) {
+        for (const c of data.contacts) {
+          await this.saveContact(c);
+        }
+      }
+      if (Array.isArray(data.controlActivities)) {
+        for (const a of data.controlActivities) {
+          await this.saveControlActivity(a);
+        }
+      }
+      if (Array.isArray(data.outbreaks)) {
+        for (const o of data.outbreaks) {
+          await this.saveOutbreak(o);
+        }
+      }
+      if (Array.isArray(data.alerts)) {
+        for (const al of data.alerts) {
+          await this.saveAlert(al);
+        }
+      }
       return true;
     } catch {
       return false;

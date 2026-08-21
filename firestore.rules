@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Reports (506 Disease Reports)
+    match /reports/{reportId} {
+      allow read: if true;
+      allow create, update: if isValidId(reportId) &&
+        incoming().id is string &&
+        incoming().disease is string &&
+        incoming().status is string;
+      allow delete: if true;
+    }
+
+    // Investigations
+    match /investigations/{investigationId} {
+      allow read: if true;
+      allow create, update: if isValidId(investigationId) &&
+        incoming().id is string &&
+        incoming().reportId is string &&
+        incoming().status is string;
+      allow delete: if true;
+    }
+
+    // Contacts
+    match /contacts/{contactId} {
+      allow read: if true;
+      allow create, update: if isValidId(contactId) &&
+        incoming().id is string &&
+        incoming().name is string;
+      allow delete: if true;
+    }
+
+    // Control Activities
+    match /control_activities/{activityId} {
+      allow read: if true;
+      allow create, update: if isValidId(activityId) &&
+        incoming().id is string &&
+        incoming().title is string;
+      allow delete: if true;
+    }
+
+    // Outbreaks
+    match /outbreaks/{outbreakId} {
+      allow read: if true;
+      allow create, update: if isValidId(outbreakId) &&
+        incoming().id is string &&
+        incoming().title is string;
+      allow delete: if true;
+    }
+
+    // Alerts
+    match /alerts/{alertId} {
+      allow read: if true;
+      allow create, update: if isValidId(alertId) &&
+        incoming().id is string &&
+        incoming().title is string;
+      allow delete: if true;
+    }
+
+    // User Accounts
+    match /user_accounts/{accountId} {
+      allow read: if true;
+      allow create, update: if isValidId(accountId) &&
+        incoming().id is string &&
+        incoming().username is string;
+      allow delete: if true;
+    }
+
+    // Meta & connection test
+    match /meta/{metaId} {
+      allow read, write: if true;
+    }
+
+    // Catch all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
