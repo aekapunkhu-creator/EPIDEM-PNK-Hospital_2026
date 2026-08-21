@@ -225,7 +225,28 @@ export const INITIAL_USER_ACCOUNTS: UserAccount[] = [
 let cachedAccounts: UserAccount[] = [];
 let isAuthListenerInitialized = false;
 
+type AuthSyncListener = () => void;
+const authListeners = new Set<AuthSyncListener>();
+
+function notifyAuthListeners() {
+  authListeners.forEach(fn => {
+    try {
+      fn();
+    } catch (e) {
+      console.error('Error in auth sync listener', e);
+    }
+  });
+}
+
 export const authService = {
+  // Subscribe to live user account updates
+  subscribe(listener: AuthSyncListener): () => void {
+    authListeners.add(listener);
+    return () => {
+      authListeners.delete(listener);
+    };
+  },
+
   // Initialize and attach Firestore listener for accounts
   initAuthListener(): void {
     if (isAuthListenerInitialized) return;
@@ -252,6 +273,7 @@ export const authService = {
 
         cachedAccounts = accounts;
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(accounts));
+        notifyAuthListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'user_accounts');
       });

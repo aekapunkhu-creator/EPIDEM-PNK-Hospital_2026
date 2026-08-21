@@ -101,6 +101,13 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   const isAdmin = currentUser.role === 'admin';
 
+  React.useEffect(() => {
+    const unsub = authService.subscribe(() => {
+      setAccounts(authService.getAccounts());
+    });
+    return () => unsub();
+  }, []);
+
   // Refresh accounts list
   const refreshAccounts = () => {
     setAccounts(authService.getAccounts());

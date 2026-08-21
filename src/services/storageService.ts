@@ -6,7 +6,7 @@ import {
   onSnapshot,
   getDocs
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from './firebase';
+import { db, handleFirestoreError, OperationType, testFirebaseConnection } from './firebase';
 import {
   DiseaseReport,
   Investigation,
@@ -90,16 +90,15 @@ export const storageService = {
     // Load from local storage first for instant render
     this.loadLocalCache();
 
-    // Check if we need to purge initial mock patient data from Firestore & local
-    if (!localStorage.getItem(STORAGE_KEYS.CLEARED_MOCK)) {
-      this.clearAllPatientData().then(() => {
-        localStorage.setItem(STORAGE_KEYS.CLEARED_MOCK, 'true');
-      }).catch(err => {
-        console.error('Initial mock cleanup error:', err);
-      });
-    }
+    // Verify Firebase Connection
+    testFirebaseConnection().then(connected => {
+      if (connected) {
+        isFirebaseConnected = true;
+        notifyListeners();
+      }
+    });
 
-    // Attach Firestore Real-time Listeners
+    // Attach Firestore Real-time Listeners so all users share and receive the exact same database in real-time
     this.initFirestoreRealtimeListeners();
   },
 
@@ -622,6 +621,32 @@ export const storageService = {
 
   addAlert(alert: EpiAlert): void {
     this.saveAlert(alert);
+  },
+
+  async seedInitialFirestoreData(): Promise<void> {
+    try {
+      console.log('Seeding initial surveillance data to Firestore...');
+      for (const r of INITIAL_REPORTS) {
+        await this.saveReport(r);
+      }
+      for (const inv of INITIAL_INVESTIGATIONS) {
+        await this.saveInvestigation(inv);
+      }
+      for (const con of INITIAL_CONTACTS) {
+        await this.saveContact(con);
+      }
+      for (const act of INITIAL_CONTROL_ACTIVITIES) {
+        await this.saveControlActivity(act);
+      }
+      for (const ob of INITIAL_OUTBREAKS) {
+        await this.saveOutbreak(ob);
+      }
+      for (const alt of INITIAL_ALERTS) {
+        await this.saveAlert(alt);
+      }
+    } catch (e) {
+      console.error('Error seeding initial data to Firestore:', e);
+    }
   },
 
   resetToDefault(): void {
