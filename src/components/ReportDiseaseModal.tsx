@@ -23,7 +23,7 @@ import {
   UserSession,
   EpiAlert
 } from '../types';
-import { PHON_NA_KAEO_SUBDISTRICTS, PHON_NA_KAEO_VILLAGES } from '../data/mockData';
+import { PHON_NA_KAEO_SUBDISTRICTS, PHON_NA_KAEO_VILLAGES, getVillagesBySubdistrict } from '../data/mockData';
 import { storageService } from '../services/storageService';
 
 interface ReportDiseaseModalProps {
@@ -35,7 +35,7 @@ interface ReportDiseaseModalProps {
 }
 
 const DISEASE_OPTIONS: { category: DiseaseCategory; nameTh: string; icd10: string }[] = [
-  { category: 'Dengue', nameTh: 'โรคไข้เลือดออก (DHF/DF)', icd10: 'A91' },
+  { category: 'Dengue', nameTh: 'โรคไข้เลือดออก (DHF/DF/DSS)', icd10: 'A91' },
   { category: 'HFMD', nameTh: 'โรคมือ เท้า ปาก (HFMD)', icd10: 'B08.4' },
   { category: 'Influenza', nameTh: 'โรคไข้หวัดใหญ่ (Influenza)', icd10: 'J10.1' },
   { category: 'Diarrhea', nameTh: 'โรคอุจจาระร่วงเฉียบพลัน / อาหารเป็นพิษ', icd10: 'A05.9' },
@@ -43,8 +43,12 @@ const DISEASE_OPTIONS: { category: DiseaseCategory; nameTh: string; icd10: strin
   { category: 'Melioidosis', nameTh: 'โรคเมลิออยโดสิส (Melioidosis)', icd10: 'A24.1' },
   { category: 'TB', nameTh: 'วัณโรคปอด (Tuberculosis)', icd10: 'A15.0' },
   { category: 'Rabies_Exposure', nameTh: 'สัมผัสสัตว์สงสัยโรคพิษสุนัขบ้า', icd10: 'Z20.3' },
-  { category: 'COVID19', nameTh: 'โรคติดเชื้อไวรัสโคโรนา 2019', icd10: 'U07.1' },
+  { category: 'COVID-19', nameTh: 'โรคติดเชื้อไวรัสโคโรนา 2019 (COVID-19)', icd10: 'U07.1' },
   { category: 'Chickenpox', nameTh: 'โรคสุกใส (Chickenpox)', icd10: 'B01.9' },
+  { category: 'Tetanus', nameTh: 'โรคบาดทะยัก (Tetanus)', icd10: 'A35' },
+  { category: 'STREP_SUIS', nameTh: 'โรคติดเชื้อสเตร็พโตคอคคัสซูอิส (ไข้หูดับ)', icd10: 'A49.1' },
+  { category: 'RTI_DEAD', nameTh: 'อุบัติเหตุจราจรเสียชีวิต (RTI Dead)', icd10: 'V89.2' },
+  { category: 'DROWNING', nameTh: 'อุบัติเหตุบาดเจ็บ หรือ จมน้ำเสียชีวิต', icd10: 'W65' },
   { category: 'Other', nameTh: 'โรคติดต่ออื่นๆ ที่ต้องเฝ้าระวัง', icd10: 'Z00' },
 ];
 
@@ -122,7 +126,7 @@ export const ReportDiseaseModal: React.FC<ReportDiseaseModalProps> = ({
     );
   };
 
-  // Handle disease change to auto-suggest ICD-10
+  // Handle disease change to auto-suggest ICD-10 & clinical preset
   const handleDiseaseChange = (cat: DiseaseCategory) => {
     setDisease(cat);
     const found = DISEASE_OPTIONS.find(d => d.category === cat);
@@ -141,6 +145,33 @@ export const ReportDiseaseModal: React.FC<ReportDiseaseModalProps> = ({
       } else if (cat === 'Leptospirosis') {
         setLabTestName('Leptospira IgM Rapid Test / MAT');
         setChiefComplaint('ไข้สูง หนาวสั่น ปวดน่องรุนแรง ตาแดง ประวัติลุยน้ำขัง');
+      } else if (cat === 'Melioidosis') {
+        setLabTestName('Burkholderia pseudomallei Hemoculture / IFA');
+        setChiefComplaint('ไข้สูงเรื้อรัง ปอดอักเสบ หรือมีฝีหนอง ประวัติสัมผัสดิน/น้ำ');
+      } else if (cat === 'TB') {
+        setLabTestName('Sputum AFB / GeneXpert MTB/RIF');
+        setChiefComplaint('ไอเรื้อรังเกิน 2 สัปดาห์ ไข้ต่ำๆ ตอนเย็น น้ำหนักลด เหงื่อออกตอนกลางคืน');
+      } else if (cat === 'Rabies_Exposure') {
+        setLabTestName('Rabies Post-Exposure Assessment (RIG + Vaccine)');
+        setChiefComplaint('ถูกสุนัข/แมวกัดหรือข่วน มีแผลเลือดออก');
+      } else if (cat === 'COVID-19' || (cat as string) === 'COVID19') {
+        setLabTestName('SARS-CoV-2 Antigen Rapid Test (ATK) / RT-PCR');
+        setChiefComplaint('ไข้ ไอ เจ็บคอ มีน้ำมูก อ่อนเพลีย');
+      } else if (cat === 'Chickenpox') {
+        setLabTestName('Clinical Diagnosis / VZV PCR');
+        setChiefComplaint('มีไข้ ตุ่มแดงกลายเป็นตุ่มน้ำใส คัน กระจายตามลำตัวและใบหน้า');
+      } else if (cat === 'Tetanus') {
+        setLabTestName('Clinical Diagnosis / Wound Culture');
+        setChiefComplaint('กล้ามเนื้อขากรรไกรเกร็ง (Trismus) หลังแอ่น ประวัติมีบาดแผลสัมผัสดิน');
+      } else if (cat === 'STREP_SUIS') {
+        setLabTestName('Streptococcus suis Hemoculture / CSF Culture');
+        setChiefComplaint('ไข้สูง หนาวสั่น ปวดศีรษะรุนแรง เยื่อหุ้มสมองอักเสบ สูญเสียการได้ยิน ประวัติรับประทานหมูดิบ');
+      } else if (cat === 'RTI_DEAD') {
+        setLabTestName('Post-Mortem / Forensic Examination');
+        setChiefComplaint('อุบัติเหตุจราจรทางบก นำส่ง รพ. เสียชีวิตในที่เกิดเหตุหรือที่ รพ.');
+      } else if (cat === 'DROWNING') {
+        setLabTestName('Emergency Resuscitation / Chest X-Ray');
+        setChiefComplaint('อุบัติเหตุจมน้ำ บาดเจ็บหรือเสียชีวิต');
       } else if (cat === 'Diarrhea') {
         setLabTestName('Stool Exam / Culture');
         setChiefComplaint('ถ่ายเหลวเป็นน้ำหลายครั้ง คลื่นไส้ อาเจียน ปวดท้อง');
@@ -151,25 +182,19 @@ export const ReportDiseaseModal: React.FC<ReportDiseaseModalProps> = ({
   // Handle subdistrict change
   const handleSubdistrictChange = (subName: string) => {
     setSubdistrict(subName);
-    const subObj = PHON_NA_KAEO_SUBDISTRICTS.find(s => s.nameTh === subName);
-    if (subObj) {
-      const vils = PHON_NA_KAEO_VILLAGES.filter(v => v.subdistrictId === subObj.id);
-      if (vils.length > 0) {
-        setVillageName(vils[0].name);
-        setMoo(vils[0].moo);
-        setLat(vils[0].lat);
-        setLng(vils[0].lng);
-      } else {
-        setLat(subObj.centerLat);
-        setLng(subObj.centerLng);
-      }
+    const vils = getVillagesBySubdistrict(subName);
+    if (vils.length > 0) {
+      setVillageName(vils[0].name);
+      setMoo(vils[0].moo);
+      setLat(vils[0].lat);
+      setLng(vils[0].lng);
     }
   };
 
   const handleVillageChange = (vName: string) => {
     setVillageName(vName);
-    const subObj = PHON_NA_KAEO_SUBDISTRICTS.find(s => s.nameTh === subdistrict);
-    const vilObj = PHON_NA_KAEO_VILLAGES.find(v => v.name === vName && v.subdistrictId === subObj?.id);
+    const vils = getVillagesBySubdistrict(subdistrict);
+    const vilObj = vils.find(v => v.name === vName);
     if (vilObj) {
       setMoo(vilObj.moo);
       setLat(vilObj.lat);
@@ -270,8 +295,17 @@ export const ReportDiseaseModal: React.FC<ReportDiseaseModalProps> = ({
     onClose();
   };
 
+  const currentVillages = getVillagesBySubdistrict(subdistrict);
   const currentSubObj = PHON_NA_KAEO_SUBDISTRICTS.find(s => s.nameTh === subdistrict);
-  const currentVillages = PHON_NA_KAEO_VILLAGES.filter(v => v.subdistrictId === currentSubObj?.id);
+  const currentHealthCenter = currentSubObj?.healthCenter || `รพ.สต.${subdistrict.replace('ตำบล', '')}`;
+
+  const UNIQUE_SUBDISTRICT_NAMES = [
+    'ตำบลนาแก้ว',
+    'ตำบลนาตงวัฒนา',
+    'ตำบลบ้านแป้น',
+    'ตำบลบ้านโพน',
+    'ตำบลเชียงสือ'
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
@@ -452,8 +486,8 @@ export const ReportDiseaseModal: React.FC<ReportDiseaseModalProps> = ({
                   onChange={(e) => handleSubdistrictChange(e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 >
-                  {PHON_NA_KAEO_SUBDISTRICTS.map(s => (
-                    <option key={s.id} value={s.nameTh}>{s.nameTh} ({s.healthCenter})</option>
+                  {UNIQUE_SUBDISTRICT_NAMES.map(name => (
+                    <option key={name} value={name}>{name}</option>
                   ))}
                 </select>
               </div>

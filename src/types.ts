@@ -23,8 +23,13 @@ export type DiseaseCategory =
   | 'Leptospirosis' // ไข้ฉี่หนู
   | 'Melioidosis' // เมลิออยโดสิส
   | 'Rabies_Exposure' // สัมผัสสัตว์สงสัยโรคพิษสุนัขบ้า
-  | 'COVID19' // โควิด-19
-  | 'Chickenpox' // สุกใส
+  | 'COVID-19' // โควิด-19
+  | 'COVID19' // โควิด-19 (Alias)
+  | 'Chickenpox' // โรคสุกใส
+  | 'Tetanus' // โรคบาดทะยัก
+  | 'STREP_SUIS' // โรคติดเชื้อสเตร็พโตคอคคัสซูอิส (ไข้หูดับ)
+  | 'RTI_DEAD' // อุบัติเหตุจราจรเสียชีวิต
+  | 'DROWNING' // อุบัติเหตุบาดเจ็บ หรือ จมน้ำเสียชีวิต
   | 'Other'; // โรคอื่นๆ
 
 export type CaseType = 'Suspected' | 'Probable' | 'Confirmed';

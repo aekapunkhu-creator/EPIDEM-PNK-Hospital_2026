@@ -30,7 +30,7 @@ import {
   Globe
 } from 'lucide-react';
 import { DiseaseReport, OutbreakEvent, SubdistrictInfo, VillageInfo } from '../types';
-import { PHON_NA_KAEO_SUBDISTRICTS, PHON_NA_KAEO_VILLAGES, PHON_NA_KAEO_DISTRICT_CENTER } from '../data/mockData';
+import { PHON_NA_KAEO_SUBDISTRICTS, PHON_NA_KAEO_VILLAGES, PHON_NA_KAEO_DISTRICT_CENTER, getVillagesBySubdistrict } from '../data/mockData';
 
 interface EpiMapViewProps {
   reports: DiseaseReport[];
@@ -106,49 +106,76 @@ const HEALTH_FACILITIES = [
     phone: '042-707003',
   },
   {
+    id: 'pcu_hospital',
+    name: 'PCU รพ.โพนนาแก้ว',
+    type: 'pcu',
+    subdistrict: 'ตำบลนาแก้ว',
+    lat: 17.2214,
+    lng: 104.2879,
+    phone: '042-707003',
+  },
+  {
     id: 'pcu_nk',
     name: 'รพ.สต.นาแก้ว',
     type: 'pcu',
     subdistrict: 'ตำบลนาแก้ว',
-    lat: 17.2260,
-    lng: 104.3120,
-    phone: '042-719123',
+    lat: 17.2513,
+    lng: 104.2232,
+    phone: '042-719201',
+  },
+  {
+    id: 'pcu_nongphue',
+    name: 'รพ.สต.บ้านใหม่หนองผือ',
+    type: 'pcu',
+    subdistrict: 'ตำบลนาแก้ว',
+    lat: 17.2820,
+    lng: 104.2570,
+    phone: '042-719202',
   },
   {
     id: 'pcu_nt',
-    name: 'รพ.สต.นาตงวัฒนา',
+    name: 'รพ.สต.โพนแคน้อย',
     type: 'pcu',
     subdistrict: 'ตำบลนาตงวัฒนา',
-    lat: 17.1850,
-    lng: 104.2850,
-    phone: '042-719124',
+    lat: 17.1890,
+    lng: 104.3125,
+    phone: '042-719203',
   },
   {
-    id: 'pcu_bp',
-    name: 'รพ.สต.บ้านแป้น',
+    id: 'pcu_phonbok',
+    name: 'รพ.สต.บ้านโพนบก',
     type: 'pcu',
     subdistrict: 'ตำบลบ้านแป้น',
-    lat: 17.2550,
-    lng: 104.2750,
-    phone: '042-719125',
+    lat: 17.2093,
+    lng: 104.2193,
+    phone: '042-719204',
+  },
+  {
+    id: 'pcu_namphu',
+    name: 'รพ.สต.บ้านน้ำผุ',
+    type: 'pcu',
+    subdistrict: 'ตำบลบ้านแป้น',
+    lat: 17.1799,
+    lng: 104.2454,
+    phone: '042-719205',
   },
   {
     id: 'pcu_bphon',
-    name: 'รพ.สต.บ้านโพน',
+    name: 'รพ.สต.ใหม่ไชยา',
     type: 'pcu',
     subdistrict: 'ตำบลบ้านโพน',
-    lat: 17.2450,
-    lng: 104.3600,
-    phone: '042-719126',
+    lat: 17.1693,
+    lng: 104.3270,
+    phone: '042-719206',
   },
   {
     id: 'pcu_cs',
-    name: 'รพ.สต.เชียงสือ',
+    name: 'รพ.สต.บ้านโนนสามัคคี',
     type: 'pcu',
     subdistrict: 'ตำบลเชียงสือ',
-    lat: 17.1650,
-    lng: 104.3350,
-    phone: '042-719127',
+    lat: 17.1496,
+    lng: 104.3453,
+    phone: '042-719207',
   },
 ];
 
@@ -164,8 +191,26 @@ const getDiseaseColor = (disease: string) => {
     case 'Diarrhea':
       return { main: '#9333ea', bg: '#f3e8ff', border: '#7e22ce', name: 'อุจจาระร่วง' };
     case 'Leptospirosis':
+      return { main: '#059669', bg: '#d1fae5', border: '#047857', name: 'ไข้ฉี่หนู' };
     case 'Melioidosis':
-      return { main: '#059669', bg: '#d1fae5', border: '#047857', name: 'ฉี่หนู/เมลิออยด์' };
+      return { main: '#dc2626', bg: '#fee2e2', border: '#991b1b', name: 'เมลิออยโดสิส' };
+    case 'TB':
+      return { main: '#c2410c', bg: '#ffedd5', border: '#9a3412', name: 'วัณโรค' };
+    case 'Rabies_Exposure':
+      return { main: '#ca8a04', bg: '#fef9c3', border: '#854d0e', name: 'สงสัยพิษสุนัขบ้า' };
+    case 'COVID-19':
+    case 'COVID19':
+      return { main: '#4f46e5', bg: '#e0e7ff', border: '#3730a3', name: 'โควิด-19' };
+    case 'Chickenpox':
+      return { main: '#ea580c', bg: '#ffedd5', border: '#c2410c', name: 'โรคสุกใส' };
+    case 'Tetanus':
+      return { main: '#b91c1c', bg: '#fee2e2', border: '#7f1d1d', name: 'โรคบาดทะยัก' };
+    case 'STREP_SUIS':
+      return { main: '#701a75', bg: '#fdf4ff', border: '#4a044e', name: 'ไข้หูดับ' };
+    case 'RTI_DEAD':
+      return { main: '#334155', bg: '#f1f5f9', border: '#0f172a', name: 'อุบัติเหตุจราจรเสียชีวิต' };
+    case 'DROWNING':
+      return { main: '#0891b2', bg: '#cffafe', border: '#155e75', name: 'จมน้ำ/บาดเจ็บ' };
     default:
       return { main: '#475569', bg: '#f1f5f9', border: '#334155', name: disease };
   }
@@ -222,9 +267,7 @@ export const EpiMapView: React.FC<EpiMapViewProps> = ({
   // Filtered villages
   const relevantVillages = useMemo(() => {
     if (selectedSubdistrict === 'all') return PHON_NA_KAEO_VILLAGES;
-    const subObj = PHON_NA_KAEO_SUBDISTRICTS.find(s => s.nameTh === selectedSubdistrict);
-    if (!subObj) return PHON_NA_KAEO_VILLAGES;
-    return PHON_NA_KAEO_VILLAGES.filter(v => v.subdistrictId === subObj.id);
+    return getVillagesBySubdistrict(selectedSubdistrict);
   }, [selectedSubdistrict]);
 
   // Subdistrict stats for sidebar
@@ -907,12 +950,20 @@ export const EpiMapView: React.FC<EpiMapViewProps> = ({
                 className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:bg-white focus:border-blue-500 font-medium"
               >
                 <option value="all">ทุกโรคเฝ้าระวัง 506</option>
-                <option value="Dengue">โรคไข้เลือดออก (DHF/DF)</option>
+                <option value="Dengue">โรคไข้เลือดออก (DHF/DF/DSS)</option>
                 <option value="HFMD">โรคมือ เท้า ปาก (HFMD)</option>
-                <option value="Influenza">โรคไข้หวัดใหญ่</option>
-                <option value="Diarrhea">อุจจาระร่วง / อาหารเป็นพิษ</option>
-                <option value="Leptospirosis">ไข้ฉี่หนู</option>
-                <option value="Melioidosis">เมลิออยโดสิส</option>
+                <option value="Influenza">โรคไข้หวัดใหญ่ (Influenza)</option>
+                <option value="Diarrhea">อุจจาระร่วงเฉียบพลัน / อาหารเป็นพิษ</option>
+                <option value="Leptospirosis">ไข้ฉี่หนู (Leptospirosis)</option>
+                <option value="Melioidosis">เมลิออยโดสิส (Melioidosis)</option>
+                <option value="TB">วัณโรคปอด (Tuberculosis)</option>
+                <option value="Rabies_Exposure">สัมผัสสัตว์สงสัยโรคพิษสุนัขบ้า</option>
+                <option value="COVID-19">โควิด-19 (COVID-19)</option>
+                <option value="Chickenpox">โรคสุกใส (Chickenpox)</option>
+                <option value="Tetanus">โรคบาดทะยัก (Tetanus)</option>
+                <option value="STREP_SUIS">โรคไข้หูดับ (Streptococcus suis)</option>
+                <option value="RTI_DEAD">อุบัติเหตุจราจรเสียชีวิต (RTI Dead)</option>
+                <option value="DROWNING">จมน้ำ / บาดเจ็บ (Drowning)</option>
               </select>
             </div>
           </div>

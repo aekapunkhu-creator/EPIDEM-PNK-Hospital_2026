@@ -102,23 +102,39 @@ export const PHON_NA_KAEO_SUBDISTRICTS: SubdistrictInfo[] = [
   },
 ];
 
+export const SUBDISTRICT_TO_PCU_IDS: Record<string, string[]> = {
+  'ตำบลนาแก้ว': ['na_kaeo_nk', 'na_kaeo_hospital', 'na_kaeo_nongphue'],
+  'ตำบลนาตงวัฒนา': ['na_tong_watthana'],
+  'ตำบลบ้านแป้น': ['ban_paen_namphu', 'ban_paen_phonbok'],
+  'ตำบลบ้านโพน': ['ban_phon'],
+  'ตำบลเชียงสือ': ['chiang_sue'],
+};
+
+export const getVillagesBySubdistrict = (subdistrictName: string): VillageInfo[] => {
+  const ids = SUBDISTRICT_TO_PCU_IDS[subdistrictName];
+  if (!ids) return PHON_NA_KAEO_VILLAGES;
+  return PHON_NA_KAEO_VILLAGES.filter(v => ids.includes(v.subdistrictId));
+};
+
 export const PHON_NA_KAEO_VILLAGES: VillageInfo[] = [
   // 1. ตำบลนาแก้ว (14 หมู่บ้าน)
   { id: 'v_nk_1', subdistrictId: 'na_kaeo_nk', moo: 1, name: 'บ้านนาแก้ว', lat: 17.1865, lng: 104.3812, households: 185, population: 760 },
+
+  { id: 'v_nk_9', subdistrictId: 'na_kaeo_nk', moo: 9, name: 'บ้านนาแก้วน้อย', lat: 17.1960, lng: 104.3850, households: 135, population: 560 },
+  { id: 'v_nk_13', subdistrictId: 'na_kaeo_nk', moo: 13, name: 'บ้านนาแก้วเหนือ', lat: 17.2020, lng: 104.3820, households: 150, population: 630 },
+  { id: 'v_nk_14', subdistrictId: 'na_kaeo_nk', moo: 14, name: 'บ้านนาแก้วสามัคคี', lat: 17.1830, lng: 104.3750, households: 140, population: 590 },
+  // PCU รพ.โพนนาแก้ว
+  { id: 'v_nk_10', subdistrictId: 'na_kaeo_hospital', moo: 10, name: 'บ้านกลางใหม่', lat: 17.2389, lng: 104.2719, households: 125, population: 530 },
+  { id: 'v_nk_11', subdistrictId: 'na_kaeo_hospital', moo: 11, name: 'บ้านนาเดื่อน้อย', lat: 17.2502, lng: 104.2802, households: 115, population: 490 },
   { id: 'v_nk_2', subdistrictId: 'na_kaeo_hospital', moo: 2, name: 'บ้านนาเดื่อ', lat: 17.2498, lng: 104.2744, households: 140, population: 580 },
   { id: 'v_nk_3', subdistrictId: 'na_kaeo_hospital', moo: 3, name: 'บ้านกลาง', lat: 17.2415, lng: 104.2697, households: 160, population: 670 },
+  // รพ.สต.ใหม่หนองผือ
   { id: 'v_nk_4', subdistrictId: 'na_kaeo_nongphue', moo: 4, name: 'บ้านหนองผือ', lat: 17.1750, lng: 104.3940, households: 130, population: 540 },
   { id: 'v_nk_5', subdistrictId: 'na_kaeo_nongphue', moo: 5, name: 'บ้านหนองกระบอก', lat: 17.1680, lng: 104.3860, households: 145, population: 610 },
   { id: 'v_nk_6', subdistrictId: 'na_kaeo_nongphue', moo: 6, name: 'บ้านโคกแก้ว', lat: 17.1720, lng: 104.3730, households: 155, population: 650 },
   { id: 'v_nk_7', subdistrictId: 'na_kaeo_nongphue', moo: 7, name: 'บ้านเทพนิมิต', lat: 17.1890, lng: 104.3920, households: 120, population: 510 },
   { id: 'v_nk_8', subdistrictId: 'na_kaeo_nongphue', moo: 8, name: 'บ้านใหม่หนองผือ', lat: 17.1780, lng: 104.4010, households: 110, population: 470 },
-  { id: 'v_nk_9', subdistrictId: 'na_kaeo_nk', moo: 9, name: 'บ้านนาแก้วน้อย', lat: 17.1960, lng: 104.3850, households: 135, population: 560 },
-  { id: 'v_nk_10', subdistrictId: 'na_kaeo_hospital', moo: 10, name: 'บ้านกลางใหม่', lat: 17.2389, lng: 104.2719, households: 125, population: 530 },
-  { id: 'v_nk_11', subdistrictId: 'na_kaeo_hospital', moo: 11, name: 'บ้านนาเดื่อน้อย', lat: 17.2502, lng: 104.2802, households: 115, population: 490 },
   { id: 'v_nk_12', subdistrictId: 'na_kaeo_nongphue', moo: 12, name: 'บ้านหนองกระบอกใหม่', lat: 17.1640, lng: 104.3920, households: 105, population: 440 },
-  { id: 'v_nk_13', subdistrictId: 'na_kaeo_nk', moo: 13, name: 'บ้านนาแก้วเหนือ', lat: 17.2020, lng: 104.3820, households: 150, population: 630 },
-  { id: 'v_nk_14', subdistrictId: 'na_kaeo_nk', moo: 14, name: 'บ้านนาแก้วสามัคคี', lat: 17.1830, lng: 104.3750, households: 140, population: 590 },
-
   // 2. ตำบลนาตงวัฒนา (12 หมู่บ้าน)
   { id: 'v_nt_1', subdistrictId: 'na_tong_watthana', moo: 1, name: 'บ้านนาตงใหญ่', lat: 17.1580, lng: 104.3620, households: 175, population: 740 },
   { id: 'v_nt_2', subdistrictId: 'na_tong_watthana', moo: 2, name: 'บ้านโพนแคใหญ่', lat: 17.1640, lng: 104.3540, households: 165, population: 690 },

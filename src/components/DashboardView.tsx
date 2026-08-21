@@ -94,8 +94,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         color = 'bg-red-50 text-red-700 border-red-200';
         badge = 'bg-red-100 text-red-700';
       } else if (r.disease === 'TB') {
-        color = 'bg-teal-50 text-teal-700 border-teal-200';
-        badge = 'bg-teal-100 text-teal-700';
+        color = 'bg-orange-50 text-orange-700 border-orange-200';
+        badge = 'bg-orange-100 text-orange-700';
+      } else if (r.disease === 'Rabies_Exposure') {
+        color = 'bg-yellow-50 text-yellow-700 border-yellow-200';
+        badge = 'bg-yellow-100 text-yellow-700';
+      } else if (r.disease === 'COVID-19' || (r.disease as string) === 'COVID19') {
+        color = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+        badge = 'bg-indigo-100 text-indigo-700';
+      } else if (r.disease === 'Chickenpox') {
+        color = 'bg-amber-50 text-amber-800 border-amber-200';
+        badge = 'bg-amber-100 text-amber-800';
+      } else if (r.disease === 'Tetanus') {
+        color = 'bg-rose-50 text-rose-800 border-rose-300';
+        badge = 'bg-rose-100 text-rose-800';
+      } else if (r.disease === 'STREP_SUIS') {
+        color = 'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200';
+        badge = 'bg-fuchsia-100 text-fuchsia-800';
+      } else if (r.disease === 'RTI_DEAD') {
+        color = 'bg-slate-100 text-slate-800 border-slate-300';
+        badge = 'bg-slate-200 text-slate-800';
+      } else if (r.disease === 'DROWNING') {
+        color = 'bg-cyan-50 text-cyan-800 border-cyan-200';
+        badge = 'bg-cyan-100 text-cyan-800';
       }
       
       diseaseCounts[r.disease] = { count: 0, nameTh: r.diseaseNameTh, color, badge };

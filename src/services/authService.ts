@@ -32,7 +32,7 @@ export const INITIAL_USER_ACCOUNTS: UserAccount[] = [
     id: 'usr_head_epi',
     username: 'head_epi',
     password: 'epi1234',
-    name: 'นวก.สธ. เอกพันธ์ ขุขันธ์ (หัวหน้างานระบาดวิทยา)',
+    name: 'นวก.สธ. เอกพันธ์ ขันติ (หัวหน้างานระบาดวิทยา)',
     role: 'head_epi',
     department: 'กลุ่มงานบริการด้านปฐมภูมิและองค์รวม (งานระบาดวิทยา & SRRT)',
     hospital: 'โรงพยาบาลโพนนาแก้ว',
