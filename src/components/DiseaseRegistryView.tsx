@@ -199,7 +199,29 @@ export const DiseaseRegistryView: React.FC<DiseaseRegistryViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredReports.map(report => (
+              {filteredReports.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                        <ClipboardList className="w-6 h-6" />
+                      </div>
+                      <p className="font-semibold text-slate-700 text-sm">ยังไม่มีข้อมูลผู้ป่วยในระบบ</p>
+                      <p className="text-xs text-slate-400 max-w-sm">
+                        ข้อมูลตัวอย่างเดิมถูกลบออกแล้ว ท่านสามารถเริ่มบันทึกเคสจริงได้โดยคลิกปุ่ม "+ รับแจ้งผู้ป่วยใหม่"
+                      </p>
+                      <button
+                        onClick={onOpenReportModal}
+                        className="mt-3 flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>+ รับแจ้งผู้ป่วยใหม่</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredReports.map(report => (
                 <tr key={report.id} className="hover:bg-slate-50 transition">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2.5">
@@ -333,7 +355,7 @@ export const DiseaseRegistryView: React.FC<DiseaseRegistryViewProps> = ({
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { UserAccount, UserSession, RoleType, UserStatus } from '../types';
 import { authService, INITIAL_USER_ACCOUNTS } from '../services/authService';
+import { storageService } from '../services/storageService';
 
 interface UserManagementViewProps {
   currentUser: UserSession;
@@ -332,6 +333,21 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
     }
   };
 
+  const [isClearingData, setIsClearingData] = useState(false);
+  const handleClearPatientData = async () => {
+    if (confirm('⚠️ ยืนยันการลบข้อมูลผู้ป่วยทั้งหมด?\n\nการดำเนินการนี้จะลบเคสรายงาน 506, การสอบสวนโรค, ผู้สัมผัส, กิจกรรมควบคุมโรค และเหตุการณ์ระบาดทั้งหมด ทั้งในเครื่องและบน Cloud Firestore')) {
+      setIsClearingData(true);
+      try {
+        await storageService.clearAllPatientData();
+        alert('ลบข้อมูลผู้ป่วยและเคสตัวอย่างทั้งหมดเรียบร้อยแล้ว');
+      } catch {
+        alert('เกิดข้อผิดพลาดในการลบข้อมูล');
+      } finally {
+        setIsClearingData(false);
+      }
+    }
+  };
+
   // Filter accounts
   const filteredAccounts = accounts.filter(acc => {
     const matchesSearch = 
@@ -394,6 +410,18 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             >
               <Crown className="w-4 h-4" />
               <span>เข้าสู่ระบบเป็น Admin</span>
+            </button>
+          )}
+
+          {isAdmin && (
+            <button
+              onClick={handleClearPatientData}
+              disabled={isClearingData}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-2xl border border-rose-200 transition disabled:opacity-50"
+              title="ล้างเคสผู้ป่วยและข้อมูลตัวอย่างทั้งหมดในระบบ"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+              <span>{isClearingData ? 'กำลังลบ...' : 'ล้างข้อมูลผู้ป่วยทั้งหมด'}</span>
             </button>
           )}
 

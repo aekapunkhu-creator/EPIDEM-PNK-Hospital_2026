@@ -35,7 +35,8 @@ const STORAGE_KEYS = {
   CONTROL_ACTIVITIES: 'pnk_epi_control_activities',
   OUTBREAKS: 'pnk_epi_outbreaks',
   ALERTS: 'pnk_epi_alerts',
-  INITIALIZED: 'pnk_epi_initialized_v4',
+  INITIALIZED: 'pnk_epi_initialized_v5',
+  CLEARED_MOCK: 'pnk_cleared_mock_patient_v2',
 };
 
 // In-memory synced stores
@@ -52,7 +53,6 @@ const listeners = new Set<SyncListener>();
 
 let isFirebaseConnected = false;
 let isInitialized = false;
-let isSeeding = false;
 let lastSyncTimestamp: Date = new Date();
 
 function notifyListeners() {
@@ -90,6 +90,15 @@ export const storageService = {
     // Load from local storage first for instant render
     this.loadLocalCache();
 
+    // Check if we need to purge initial mock patient data from Firestore & local
+    if (!localStorage.getItem(STORAGE_KEYS.CLEARED_MOCK)) {
+      this.clearAllPatientData().then(() => {
+        localStorage.setItem(STORAGE_KEYS.CLEARED_MOCK, 'true');
+      }).catch(err => {
+        console.error('Initial mock cleanup error:', err);
+      });
+    }
+
     // Attach Firestore Real-time Listeners
     this.initFirestoreRealtimeListeners();
   },
@@ -97,83 +106,105 @@ export const storageService = {
   loadLocalCache(): void {
     try {
       const rep = localStorage.getItem(STORAGE_KEYS.REPORTS);
-      cachedReports = rep ? JSON.parse(rep) : INITIAL_REPORTS;
+      cachedReports = rep ? JSON.parse(rep) : [];
 
       const inv = localStorage.getItem(STORAGE_KEYS.INVESTIGATIONS);
-      cachedInvestigations = inv ? JSON.parse(inv) : INITIAL_INVESTIGATIONS;
+      cachedInvestigations = inv ? JSON.parse(inv) : [];
 
       const con = localStorage.getItem(STORAGE_KEYS.CONTACTS);
-      cachedContacts = con ? JSON.parse(con) : INITIAL_CONTACTS;
+      cachedContacts = con ? JSON.parse(con) : [];
 
       const act = localStorage.getItem(STORAGE_KEYS.CONTROL_ACTIVITIES);
-      cachedControlActivities = act ? JSON.parse(act) : INITIAL_CONTROL_ACTIVITIES;
+      cachedControlActivities = act ? JSON.parse(act) : [];
 
       const out = localStorage.getItem(STORAGE_KEYS.OUTBREAKS);
-      cachedOutbreaks = out ? JSON.parse(out) : INITIAL_OUTBREAKS;
+      cachedOutbreaks = out ? JSON.parse(out) : [];
 
       const alt = localStorage.getItem(STORAGE_KEYS.ALERTS);
-      cachedAlerts = alt ? JSON.parse(alt) : INITIAL_ALERTS;
+      cachedAlerts = alt ? JSON.parse(alt) : [];
     } catch (e) {
       console.error('Error loading local cache', e);
     }
   },
 
-  async seedInitialFirestoreData(): Promise<void> {
-    if (isSeeding) return;
-    isSeeding = true;
+  async clearAllPatientData(): Promise<void> {
     try {
-      console.log('Seeding initial Phon Na Kaeo data to Firestore...');
-      // Seed Reports
-      for (const rep of INITIAL_REPORTS) {
-        await setDoc(doc(db, 'reports', rep.id), rep);
+      console.log('Clearing all patient data and demo records from Firestore and local cache...');
+      
+      // 1. Delete all Firestore reports
+      const reportsSnap = await getDocs(collection(db, 'reports'));
+      for (const d of reportsSnap.docs) {
+        await deleteDoc(doc(db, 'reports', d.id));
       }
-      // Seed Investigations
-      for (const inv of INITIAL_INVESTIGATIONS) {
-        await setDoc(doc(db, 'investigations', inv.id), inv);
+
+      // 2. Delete all investigations
+      const invSnap = await getDocs(collection(db, 'investigations'));
+      for (const d of invSnap.docs) {
+        await deleteDoc(doc(db, 'investigations', d.id));
       }
-      // Seed Contacts
-      for (const con of INITIAL_CONTACTS) {
-        await setDoc(doc(db, 'contacts', con.id), con);
+
+      // 3. Delete all contacts
+      const conSnap = await getDocs(collection(db, 'contacts'));
+      for (const d of conSnap.docs) {
+        await deleteDoc(doc(db, 'contacts', d.id));
       }
-      // Seed Activities
-      for (const act of INITIAL_CONTROL_ACTIVITIES) {
-        await setDoc(doc(db, 'control_activities', act.id), act);
+
+      // 4. Delete all control activities
+      const actSnap = await getDocs(collection(db, 'control_activities'));
+      for (const d of actSnap.docs) {
+        await deleteDoc(doc(db, 'control_activities', d.id));
       }
-      // Seed Outbreaks
-      for (const out of INITIAL_OUTBREAKS) {
-        await setDoc(doc(db, 'outbreaks', out.id), out);
+
+      // 5. Delete all outbreaks
+      const outSnap = await getDocs(collection(db, 'outbreaks'));
+      for (const d of outSnap.docs) {
+        await deleteDoc(doc(db, 'outbreaks', d.id));
       }
-      // Seed Alerts
-      for (const alt of INITIAL_ALERTS) {
-        await setDoc(doc(db, 'alerts', alt.id), alt);
+
+      // 6. Delete all alerts
+      const altSnap = await getDocs(collection(db, 'alerts'));
+      for (const d of altSnap.docs) {
+        await deleteDoc(doc(db, 'alerts', d.id));
       }
-      console.log('Firestore seed complete!');
+
+      // Clear in-memory caches
+      cachedReports = [];
+      cachedInvestigations = [];
+      cachedContacts = [];
+      cachedControlActivities = [];
+      cachedOutbreaks = [];
+      cachedAlerts = [];
+
+      // Clear local storage keys
+      localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.CLEARED_MOCK, 'true');
+
+      notifyListeners();
+      console.log('All patient and demo records successfully cleared.');
     } catch (err) {
-      console.error('Failed to seed initial Firestore data:', err);
-    } finally {
-      isSeeding = false;
+      console.error('Error clearing patient data:', err);
     }
   },
 
   initFirestoreRealtimeListeners(): void {
     try {
       // 1. Reports Listener
-      onSnapshot(collection(db, 'reports'), async (snapshot) => {
+      onSnapshot(collection(db, 'reports'), (snapshot) => {
         isFirebaseConnected = true;
-        if (snapshot.empty && !localStorage.getItem(STORAGE_KEYS.INITIALIZED)) {
-          localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
-          await this.seedInitialFirestoreData();
-          return;
-        }
+        const items: DiseaseReport[] = [];
         if (!snapshot.empty) {
-          const items: DiseaseReport[] = [];
           snapshot.forEach(docSnap => items.push(docSnap.data() as DiseaseReport));
           // Sort by reportDate or createdAt descending
           items.sort((a, b) => new Date(b.reportDate || b.createdAt).getTime() - new Date(a.reportDate || a.createdAt).getTime());
-          cachedReports = items;
-          localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(items));
-          notifyListeners();
         }
+        cachedReports = items;
+        localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(items));
+        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'reports');
       });
@@ -181,14 +212,14 @@ export const storageService = {
       // 2. Investigations Listener
       onSnapshot(collection(db, 'investigations'), (snapshot) => {
         isFirebaseConnected = true;
+        const items: Investigation[] = [];
         if (!snapshot.empty) {
-          const items: Investigation[] = [];
           snapshot.forEach(docSnap => items.push(docSnap.data() as Investigation));
           items.sort((a, b) => new Date(b.investigationDate).getTime() - new Date(a.investigationDate).getTime());
-          cachedInvestigations = items;
-          localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(items));
-          notifyListeners();
         }
+        cachedInvestigations = items;
+        localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(items));
+        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'investigations');
       });
@@ -196,13 +227,13 @@ export const storageService = {
       // 3. Contacts Listener
       onSnapshot(collection(db, 'contacts'), (snapshot) => {
         isFirebaseConnected = true;
+        const items: ContactPerson[] = [];
         if (!snapshot.empty) {
-          const items: ContactPerson[] = [];
           snapshot.forEach(docSnap => items.push(docSnap.data() as ContactPerson));
-          cachedContacts = items;
-          localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(items));
-          notifyListeners();
         }
+        cachedContacts = items;
+        localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(items));
+        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'contacts');
       });
@@ -210,14 +241,14 @@ export const storageService = {
       // 4. Control Activities Listener
       onSnapshot(collection(db, 'control_activities'), (snapshot) => {
         isFirebaseConnected = true;
+        const items: ControlActivity[] = [];
         if (!snapshot.empty) {
-          const items: ControlActivity[] = [];
           snapshot.forEach(docSnap => items.push(docSnap.data() as ControlActivity));
           items.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
-          cachedControlActivities = items;
-          localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(items));
-          notifyListeners();
         }
+        cachedControlActivities = items;
+        localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(items));
+        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'control_activities');
       });
@@ -225,13 +256,13 @@ export const storageService = {
       // 5. Outbreaks Listener
       onSnapshot(collection(db, 'outbreaks'), (snapshot) => {
         isFirebaseConnected = true;
+        const items: OutbreakEvent[] = [];
         if (!snapshot.empty) {
-          const items: OutbreakEvent[] = [];
           snapshot.forEach(docSnap => items.push(docSnap.data() as OutbreakEvent));
-          cachedOutbreaks = items;
-          localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify(items));
-          notifyListeners();
         }
+        cachedOutbreaks = items;
+        localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify(items));
+        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'outbreaks');
       });
@@ -239,14 +270,14 @@ export const storageService = {
       // 6. Alerts Listener
       onSnapshot(collection(db, 'alerts'), (snapshot) => {
         isFirebaseConnected = true;
+        const items: EpiAlert[] = [];
         if (!snapshot.empty) {
-          const items: EpiAlert[] = [];
           snapshot.forEach(docSnap => items.push(docSnap.data() as EpiAlert));
           items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          cachedAlerts = items;
-          localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(items));
-          notifyListeners();
         }
+        cachedAlerts = items;
+        localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(items));
+        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'alerts');
       });
@@ -257,7 +288,7 @@ export const storageService = {
   },
 
   resetToDefaults(): void {
-    this.seedInitialFirestoreData();
+    this.clearAllPatientData();
   },
 
   // User Session Management
@@ -326,7 +357,7 @@ export const storageService = {
   getReports(): DiseaseReport[] {
     if (cachedReports.length > 0) return cachedReports;
     const raw = localStorage.getItem(STORAGE_KEYS.REPORTS);
-    return raw ? JSON.parse(raw) : INITIAL_REPORTS;
+    return raw ? JSON.parse(raw) : [];
   },
 
   async saveReport(report: DiseaseReport): Promise<void> {
@@ -373,7 +404,7 @@ export const storageService = {
   getInvestigations(): Investigation[] {
     if (cachedInvestigations.length > 0) return cachedInvestigations;
     const raw = localStorage.getItem(STORAGE_KEYS.INVESTIGATIONS);
-    return raw ? JSON.parse(raw) : INITIAL_INVESTIGATIONS;
+    return raw ? JSON.parse(raw) : [];
   },
 
   getInvestigationById(id: string): Investigation | undefined {
@@ -433,7 +464,7 @@ export const storageService = {
   getContacts(): ContactPerson[] {
     if (cachedContacts.length > 0) return cachedContacts;
     const raw = localStorage.getItem(STORAGE_KEYS.CONTACTS);
-    return raw ? JSON.parse(raw) : INITIAL_CONTACTS;
+    return raw ? JSON.parse(raw) : [];
   },
 
   async saveContact(contact: ContactPerson): Promise<void> {
@@ -472,7 +503,7 @@ export const storageService = {
   getControlActivities(): ControlActivity[] {
     if (cachedControlActivities.length > 0) return cachedControlActivities;
     const raw = localStorage.getItem(STORAGE_KEYS.CONTROL_ACTIVITIES);
-    return raw ? JSON.parse(raw) : INITIAL_CONTROL_ACTIVITIES;
+    return raw ? JSON.parse(raw) : [];
   },
 
   async saveControlActivity(activity: ControlActivity): Promise<void> {
@@ -525,7 +556,7 @@ export const storageService = {
   getOutbreaks(): OutbreakEvent[] {
     if (cachedOutbreaks.length > 0) return cachedOutbreaks;
     const raw = localStorage.getItem(STORAGE_KEYS.OUTBREAKS);
-    return raw ? JSON.parse(raw) : INITIAL_OUTBREAKS;
+    return raw ? JSON.parse(raw) : [];
   },
 
   async saveOutbreak(outbreak: OutbreakEvent): Promise<void> {
@@ -551,7 +582,7 @@ export const storageService = {
   getAlerts(): EpiAlert[] {
     if (cachedAlerts.length > 0) return cachedAlerts;
     const raw = localStorage.getItem(STORAGE_KEYS.ALERTS);
-    return raw ? JSON.parse(raw) : INITIAL_ALERTS;
+    return raw ? JSON.parse(raw) : [];
   },
 
   async markAlertAsRead(id: string): Promise<void> {

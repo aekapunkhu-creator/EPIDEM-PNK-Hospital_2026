@@ -282,7 +282,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                 <button
                   onClick={() => {
-                    if (confirm('ต้องการรีเซ็ตและซิงค์ข้อมูลเริ่มต้นไปยัง Firebase Cloud หรือไม่?')) {
+                    if (confirm('ต้องการรีเซ็ตสถานะและซิงค์ข้อมูลกับ Firebase Cloud หรือไม่?')) {
                       onResetData();
                       setShowProfileMenu(false);
                     }
@@ -290,7 +290,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className="w-full text-left px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-                  <span>ซิงค์ข้อมูลตัวอย่างเริ่มต้น (Reset Cloud Data)</span>
+                  <span>รีเฟรช / ซิงค์ข้อมูลกับ Cloud (Sync Cloud Data)</span>
                 </button>
 
                 {onLogout && (

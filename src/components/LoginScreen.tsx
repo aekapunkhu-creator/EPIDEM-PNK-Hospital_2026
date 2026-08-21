@@ -8,21 +8,14 @@ import {
   EyeOff,
   AlertCircle,
   CheckCircle2,
-  Building2,
-  MapPin,
   Stethoscope,
   Activity,
-  Sparkles,
   ArrowRight,
-  Clock,
-  Ban,
   HelpCircle,
-  Crown,
-  Search,
   Check
 } from 'lucide-react';
-import { UserSession, RoleType } from '../types';
-import { authService, INITIAL_USER_ACCOUNTS } from '../services/authService';
+import { UserSession } from '../types';
+import { authService } from '../services/authService';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: UserSession) => void;
@@ -35,10 +28,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'form' | 'quick_select'>('form');
-
-  // Load all available accounts from storage
-  const accounts = authService.getAccounts();
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,40 +57,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         setErrorMessage(res.message);
       }
     }, 200);
-  };
-
-  const handleSelectQuickAccount = (accountId: string) => {
-    setErrorMessage('');
-    setSuccessMessage('');
-    const target = accounts.find(a => a.id === accountId);
-    if (!target) return;
-
-    if (target.status === 'pending') {
-      setErrorMessage('บัญชีนี้อยู่ระหว่าง "รอการอนุมัติการใช้งาน" จาก Admin');
-      return;
-    }
-    if (target.status === 'suspended') {
-      setErrorMessage('บัญชีนี้ถูกระงับการใช้งานชั่วคราว');
-      return;
-    }
-
-    setUsername(target.username);
-    setPassword(target.password);
-    
-    // Auto login
-    setIsLoading(true);
-    setTimeout(() => {
-      const res = authService.login(target.username, target.password);
-      setIsLoading(false);
-      if (res.success && res.user) {
-        setSuccessMessage(`เข้าสู่ระบบในชื่อ ${res.user.name}`);
-        setTimeout(() => {
-          onLoginSuccess(res.user!);
-        }, 300);
-      } else {
-        setErrorMessage(res.message);
-      }
-    }, 150);
   };
 
   return (
@@ -182,7 +137,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 <span>จำกัดการเข้าถึงเฉพาะเจ้าหน้าที่สาธารณสุข</span>
               </div>
               <p className="mt-1 text-[10px] text-blue-300/70">
-                กรุณาเข้าสู่ระบบด้วยชื่อผู้ใช้งานและรหัสผ่านที่ได้รับอนุญาต
+                กรุณาเข้าสู่ระบบด้วยชื่อผู้ใช้งานและรหัสผ่านส่วนบุคคลของท่าน
               </p>
             </div>
           </div>
@@ -191,42 +146,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           <div className="lg:col-span-7 p-6 sm:p-8 bg-white text-slate-800 flex flex-col justify-between">
             <div>
               
-              {/* Tab Selector: Standard Form vs Quick Account Demo */}
-              <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-6">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">
-                    เข้าสู่ระบบ (Sign In)
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    ระบุข้อมูลประจำตัวเพื่อเข้าใช้งานระบบ
-                  </p>
-                </div>
-
-                <div className="flex bg-slate-100 p-1 rounded-2xl text-xs font-semibold">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('form')}
-                    className={`px-3 py-1.5 rounded-xl transition ${
-                      activeTab === 'form' 
-                        ? 'bg-white text-blue-700 shadow-xs font-bold' 
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    กรอกรหัสผ่าน
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('quick_select')}
-                    className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1 ${
-                      activeTab === 'quick_select' 
-                        ? 'bg-blue-600 text-white shadow-xs font-bold' 
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span>เลือกบัญชีทดสอบ</span>
-                  </button>
-                </div>
+              {/* Header */}
+              <div className="border-b border-slate-200 pb-4 mb-6">
+                <h3 className="text-lg font-bold text-slate-900">
+                  เข้าสู่ระบบ (Sign In)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  ระบุชื่อผู้ใช้งานและรหัสผ่านเพื่อยืนยันตัวตน
+                </p>
               </div>
 
               {/* Status Notifications */}
@@ -244,147 +171,72 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 </div>
               )}
 
-              {/* TAB 1: FORM LOGIN */}
-              {activeTab === 'form' && (
-                <form onSubmit={handleLoginSubmit} className="space-y-4">
-                  {/* Username */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      ชื่อผู้ใช้งาน (Username):
-                    </label>
-                    <div className="relative">
-                      <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder="เช่น admin, head_epi, pcu_nakaeo"
-                        autoFocus
-                        required
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-3 py-3 text-xs text-slate-800 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
-                      />
-                    </div>
+              {/* Secure Form Login */}
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
+                {/* Username */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    ชื่อผู้ใช้งาน (Username):
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="กรอกชื่อผู้ใช้งานส่วนบุคคล"
+                      autoFocus
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-3 py-3 text-xs text-slate-800 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                    />
                   </div>
+                </div>
 
-                  {/* Password */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold text-slate-700">
-                        รหัสผ่าน (Password):
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('quick_select')}
-                        className="text-[11px] text-blue-600 hover:text-blue-800 font-medium hover:underline"
-                      >
-                        ดูรายชื่อและรหัสผ่านทั้งหมด
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="กรอกรหัสผ่าน"
-                        required
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 py-3 text-xs text-slate-800 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        title={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Login Button */}
-                  <div className="pt-2">
+                {/* Password */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    รหัสผ่าน (Password):
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="กรอกรหัสผ่าน"
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 py-3 text-xs text-slate-800 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                    />
                     <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-blue-600/25 transition transform active:scale-98 flex items-center justify-center gap-2"
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      title={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                     >
-                      {isLoading ? (
-                        <span>กำลังตรวจสอบสิทธิ์...</span>
-                      ) : (
-                        <>
-                          <KeyRound className="w-4 h-4" />
-                          <span>เข้าสู่ระบบ (Sign In)</span>
-                          <ArrowRight className="w-4 h-4 ml-1" />
-                        </>
-                      )}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                </form>
-              )}
-
-              {/* TAB 2: QUICK ACCOUNT SELECTOR */}
-              {activeTab === 'quick_select' && (
-                <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                  <p className="text-[11px] text-slate-500 mb-2">
-                    คลิกเลือกบัญชีผู้ใช้งานเพื่อเข้าสู่ระบบทันที (สำหรับทดสอบระบบ):
-                  </p>
-                  
-                  {accounts.map((acc) => {
-                    const isPending = acc.status === 'pending';
-                    const isSuspended = acc.status === 'suspended';
-
-                    return (
-                      <button
-                        key={acc.id}
-                        type="button"
-                        onClick={() => handleSelectQuickAccount(acc.id)}
-                        disabled={isSuspended}
-                        className={`w-full text-left p-2.5 rounded-2xl border transition flex items-center justify-between ${
-                          isPending
-                            ? 'bg-amber-50/60 border-amber-200 hover:bg-amber-100'
-                            : isSuspended
-                            ? 'bg-red-50/40 border-red-200 opacity-60 cursor-not-allowed'
-                            : acc.role === 'admin'
-                            ? 'bg-purple-50/60 border-purple-200 hover:bg-purple-100'
-                            : acc.role.startsWith('pcu_')
-                            ? 'bg-emerald-50/60 border-emerald-200 hover:bg-emerald-100'
-                            : 'bg-slate-50 border-slate-200 hover:bg-blue-50 hover:border-blue-200'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
-                            acc.role === 'admin'
-                              ? 'bg-purple-200 text-purple-800'
-                              : acc.role.startsWith('pcu_')
-                              ? 'bg-emerald-200 text-emerald-800'
-                              : 'bg-blue-200 text-blue-800'
-                          }`}>
-                            {acc.role === 'admin' ? '👑' : acc.role.startsWith('pcu_') ? '🏡' : '🏥'}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-xs text-slate-800">{acc.name}</span>
-                              {isPending && (
-                                <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded text-[9px] font-bold">
-                                  รออนุมัติ
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-slate-500">{acc.department}</p>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <span className="font-mono text-[11px] font-bold text-slate-600 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
-                            {acc.username}
-                          </span>
-                          <p className="text-[9px] text-slate-400 mt-0.5">รหัส: {acc.password}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
                 </div>
-              )}
+
+                {/* Login Button */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-blue-600/25 transition transform active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                  >
+                    {isLoading ? (
+                      <span>กำลังตรวจสอบสิทธิ์...</span>
+                    ) : (
+                      <>
+                        <KeyRound className="w-4 h-4" />
+                        <span>เข้าสู่ระบบ (Sign In)</span>
+                        <ArrowRight className="w-4 h-4 ml-1" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
 
             {/* Support info */}

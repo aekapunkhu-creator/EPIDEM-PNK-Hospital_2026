@@ -307,23 +307,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {Object.entries(diseaseCounts).map(([diseaseKey, item]) => (
-                <div 
-                  key={diseaseKey}
-                  onClick={() => onNavigate('reports')}
-                  className={`p-3.5 rounded-2xl border ${item.color} hover:shadow-xs cursor-pointer transition`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${item.badge}`}>
-                      {diseaseKey}
-                    </span>
-                    <span className="text-xl font-black text-slate-800">{item.count}</span>
-                  </div>
-                  <p className="text-xs font-bold text-slate-700 mt-2 truncate">
-                    {item.nameTh}
-                  </p>
+              {Object.entries(diseaseCounts).length === 0 ? (
+                <div className="col-span-full py-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <p className="text-xs font-semibold text-slate-600">ยังไม่มีผู้ป่วยรายงานในระบบ</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">กดปุ่ม "รับแจ้งผู้ป่วยใหม่" เพื่อบันทึกข้อมูล 506</p>
                 </div>
-              ))}
+              ) : (
+                Object.entries(diseaseCounts).map(([diseaseKey, item]) => (
+                  <div 
+                    key={diseaseKey}
+                    onClick={() => onNavigate('reports')}
+                    className={`p-3.5 rounded-2xl border ${item.color} hover:shadow-xs cursor-pointer transition`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${item.badge}`}>
+                        {diseaseKey}
+                      </span>
+                      <span className="text-xl font-black text-slate-800">{item.count}</span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-700 mt-2 truncate">
+                      {item.nameTh}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -345,7 +352,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             <div className="p-4 divide-y divide-slate-100">
-              {reports.slice(0, 4).map(report => (
+              {reports.length === 0 ? (
+                <div className="py-8 text-center text-slate-400">
+                  <p className="text-xs font-medium text-slate-600">ไม่มีข้อมูลผู้ป่วยที่ต้องแสดงผล</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">ลบข้อมูลตัวอย่างเรียบร้อย พร้อมสำหรับการบันทึกเคสจริง</p>
+                </div>
+              ) : (
+                reports.slice(0, 4).map(report => (
                 <div 
                   key={report.id}
                   onClick={() => onSelectReport(report)}
@@ -386,7 +399,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <p className="text-[10px] text-slate-400 mt-1">เริ่มป่วย {report.onsetDate}</p>
                   </div>
                 </div>
-              ))}
+              )))}
             </div>
 
             <div className="p-4 border-t border-slate-100">
