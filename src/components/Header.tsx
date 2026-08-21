@@ -81,17 +81,17 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
               รพ.โพนนาแก้ว
             </span>
-            {/* Live Shared Firebase Badge */}
+            {/* Live Shared Firebase RTDB Badge */}
             <div 
-              title="เชื่อมต่อฐานข้อมูล Google Cloud Firebase แบบ Realtime (ทุกคนที่เปิดลิงก์จะเห็นและแชร์ฐานข้อมูลเดียวกันทันที)"
+              title="เชื่อมต่อ Firebase Realtime Database: https://gen-lang-client-0300364247-default-rtdb.asia-southeast1.firebasedatabase.app/ (ทุกคนที่เปิดลิงก์จะเห็นและซิงค์ข้อมูลตรงกันแบบ Realtime ทันที)"
               className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
             >
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Firebase Cloud (แชร์ Realtime)</span>
+              <Database className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Realtime Database (Live Sync)</span>
             </div>
           </div>
           <p className="text-xs text-slate-500 mt-0.5 truncate hidden md:block">

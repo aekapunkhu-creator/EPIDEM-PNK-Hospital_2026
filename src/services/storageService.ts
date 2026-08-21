@@ -6,7 +6,14 @@ import {
   onSnapshot,
   getDocs
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType, testFirebaseConnection } from './firebase';
+import {
+  ref as rtdbRef,
+  set as rtdbSet,
+  remove as rtdbRemove,
+  onValue as rtdbOnValue,
+  get as rtdbGet
+} from 'firebase/database';
+import { db, rtdb, RTDB_URL, handleFirestoreError, OperationType, testFirebaseConnection } from './firebase';
 import {
   DiseaseReport,
   Investigation,
@@ -75,22 +82,26 @@ export const storageService = {
     };
   },
 
-  getCloudSyncStatus(): { isConnected: boolean; lastSync: Date } {
+  getCloudSyncStatus(): { isConnected: boolean; lastSync: Date; rtdbUrl: string } {
     return {
       isConnected: isFirebaseConnected,
-      lastSync: lastSyncTimestamp
+      lastSync: lastSyncTimestamp,
+      rtdbUrl: RTDB_URL
     };
   },
 
-  // Initialize data and real-time Firestore listeners
+  // Initialize data and real-time listeners
   initData(): void {
     if (isInitialized) return;
     isInitialized = true;
 
-    // Load from local storage first for instant render
+    // 1. Load from local cache for instant initial render
     this.loadLocalCache();
 
-    // Verify Firebase Connection
+    // 2. Fetch directly from Firebase Realtime Database on start / refresh
+    this.fetchFromRealtimeDatabase();
+
+    // 3. Verify Firebase Connection
     testFirebaseConnection().then(connected => {
       if (connected) {
         isFirebaseConnected = true;
@@ -98,8 +109,82 @@ export const storageService = {
       }
     });
 
-    // Attach Firestore Real-time Listeners so all users share and receive the exact same database in real-time
-    this.initFirestoreRealtimeListeners();
+    // 4. Attach Real-time Listeners (Realtime Database + Firestore) so all users share the exact same database
+    this.initRealtimeListeners();
+  },
+
+  async fetchFromRealtimeDatabase(): Promise<void> {
+    try {
+      const [repSnap, invSnap, conSnap, actSnap, outSnap, altSnap] = await Promise.all([
+        rtdbGet(rtdbRef(rtdb, 'reports')),
+        rtdbGet(rtdbRef(rtdb, 'investigations')),
+        rtdbGet(rtdbRef(rtdb, 'contacts')),
+        rtdbGet(rtdbRef(rtdb, 'control_activities')),
+        rtdbGet(rtdbRef(rtdb, 'outbreaks')),
+        rtdbGet(rtdbRef(rtdb, 'alerts'))
+      ]);
+
+      let hasRtdbData = false;
+
+      if (repSnap.exists()) {
+        hasRtdbData = true;
+        const val = repSnap.val();
+        const items: DiseaseReport[] = Array.isArray(val) ? val.filter(Boolean) : Object.values(val);
+        items.sort((a, b) => new Date(b.reportDate || b.createdAt).getTime() - new Date(a.reportDate || a.createdAt).getTime());
+        cachedReports = items;
+        localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(items));
+      }
+
+      if (invSnap.exists()) {
+        hasRtdbData = true;
+        const val = invSnap.val();
+        const items: Investigation[] = Array.isArray(val) ? val.filter(Boolean) : Object.values(val);
+        items.sort((a, b) => new Date(b.investigationDate).getTime() - new Date(a.investigationDate).getTime());
+        cachedInvestigations = items;
+        localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(items));
+      }
+
+      if (conSnap.exists()) {
+        hasRtdbData = true;
+        const val = conSnap.val();
+        const items: ContactPerson[] = Array.isArray(val) ? val.filter(Boolean) : Object.values(val);
+        cachedContacts = items;
+        localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(items));
+      }
+
+      if (actSnap.exists()) {
+        hasRtdbData = true;
+        const val = actSnap.val();
+        const items: ControlActivity[] = Array.isArray(val) ? val.filter(Boolean) : Object.values(val);
+        items.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+        cachedControlActivities = items;
+        localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(items));
+      }
+
+      if (outSnap.exists()) {
+        hasRtdbData = true;
+        const val = outSnap.val();
+        const items: OutbreakEvent[] = Array.isArray(val) ? val.filter(Boolean) : Object.values(val);
+        cachedOutbreaks = items;
+        localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify(items));
+      }
+
+      if (altSnap.exists()) {
+        hasRtdbData = true;
+        const val = altSnap.val();
+        const items: EpiAlert[] = Array.isArray(val) ? val.filter(Boolean) : Object.values(val);
+        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        cachedAlerts = items;
+        localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(items));
+      }
+
+      if (hasRtdbData) {
+        isFirebaseConnected = true;
+        notifyListeners();
+      }
+    } catch (err) {
+      console.warn('Initial RTDB direct fetch notice:', err);
+    }
   },
 
   loadLocalCache(): void {
@@ -128,7 +213,7 @@ export const storageService = {
 
   async clearAllPatientData(): Promise<void> {
     try {
-      console.log('Clearing all patient data and demo records from Firestore and local cache...');
+      console.log('Clearing all patient data and demo records from Firebase & local cache...');
       
       // 1. Delete all Firestore reports
       const reportsSnap = await getDocs(collection(db, 'reports'));
@@ -166,6 +251,18 @@ export const storageService = {
         await deleteDoc(doc(db, 'alerts', d.id));
       }
 
+      // Clear in Firebase Realtime Database
+      try {
+        await rtdbRemove(rtdbRef(rtdb, 'reports'));
+        await rtdbRemove(rtdbRef(rtdb, 'investigations'));
+        await rtdbRemove(rtdbRef(rtdb, 'contacts'));
+        await rtdbRemove(rtdbRef(rtdb, 'control_activities'));
+        await rtdbRemove(rtdbRef(rtdb, 'outbreaks'));
+        await rtdbRemove(rtdbRef(rtdb, 'alerts'));
+      } catch (rtdbErr) {
+        console.warn('RTDB clear warning:', rtdbErr);
+      }
+
       // Clear in-memory caches
       cachedReports = [];
       cachedInvestigations = [];
@@ -190,7 +287,95 @@ export const storageService = {
     }
   },
 
-  initFirestoreRealtimeListeners(): void {
+  initRealtimeListeners(): void {
+    // 1. Firebase Realtime Database Listeners (Fast Sub-millisecond sync across all clients)
+    try {
+      rtdbOnValue(rtdbRef(rtdb, 'reports'), (snap) => {
+        isFirebaseConnected = true;
+        if (snap.exists()) {
+          const val = snap.val();
+          const items: DiseaseReport[] = Array.isArray(val)
+            ? val.filter(Boolean)
+            : Object.values(val);
+          items.sort((a, b) => new Date(b.reportDate || b.createdAt).getTime() - new Date(a.reportDate || a.createdAt).getTime());
+          cachedReports = items;
+          localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(items));
+          notifyListeners();
+        }
+      });
+
+      rtdbOnValue(rtdbRef(rtdb, 'investigations'), (snap) => {
+        isFirebaseConnected = true;
+        if (snap.exists()) {
+          const val = snap.val();
+          const items: Investigation[] = Array.isArray(val)
+            ? val.filter(Boolean)
+            : Object.values(val);
+          items.sort((a, b) => new Date(b.investigationDate).getTime() - new Date(a.investigationDate).getTime());
+          cachedInvestigations = items;
+          localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(items));
+          notifyListeners();
+        }
+      });
+
+      rtdbOnValue(rtdbRef(rtdb, 'contacts'), (snap) => {
+        isFirebaseConnected = true;
+        if (snap.exists()) {
+          const val = snap.val();
+          const items: ContactPerson[] = Array.isArray(val)
+            ? val.filter(Boolean)
+            : Object.values(val);
+          cachedContacts = items;
+          localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(items));
+          notifyListeners();
+        }
+      });
+
+      rtdbOnValue(rtdbRef(rtdb, 'control_activities'), (snap) => {
+        isFirebaseConnected = true;
+        if (snap.exists()) {
+          const val = snap.val();
+          const items: ControlActivity[] = Array.isArray(val)
+            ? val.filter(Boolean)
+            : Object.values(val);
+          items.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+          cachedControlActivities = items;
+          localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(items));
+          notifyListeners();
+        }
+      });
+
+      rtdbOnValue(rtdbRef(rtdb, 'outbreaks'), (snap) => {
+        isFirebaseConnected = true;
+        if (snap.exists()) {
+          const val = snap.val();
+          const items: OutbreakEvent[] = Array.isArray(val)
+            ? val.filter(Boolean)
+            : Object.values(val);
+          cachedOutbreaks = items;
+          localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify(items));
+          notifyListeners();
+        }
+      });
+
+      rtdbOnValue(rtdbRef(rtdb, 'alerts'), (snap) => {
+        isFirebaseConnected = true;
+        if (snap.exists()) {
+          const val = snap.val();
+          const items: EpiAlert[] = Array.isArray(val)
+            ? val.filter(Boolean)
+            : Object.values(val);
+          items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          cachedAlerts = items;
+          localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(items));
+          notifyListeners();
+        }
+      });
+    } catch (rtdbErr) {
+      console.warn('Realtime Database listener registration notice:', rtdbErr);
+    }
+
+    // 2. Firestore Listeners
     try {
       // 1. Reports Listener
       onSnapshot(collection(db, 'reports'), (snapshot) => {
@@ -198,12 +383,11 @@ export const storageService = {
         const items: DiseaseReport[] = [];
         if (!snapshot.empty) {
           snapshot.forEach(docSnap => items.push(docSnap.data() as DiseaseReport));
-          // Sort by reportDate or createdAt descending
           items.sort((a, b) => new Date(b.reportDate || b.createdAt).getTime() - new Date(a.reportDate || a.createdAt).getTime());
+          cachedReports = items;
+          localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(items));
+          notifyListeners();
         }
-        cachedReports = items;
-        localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(items));
-        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'reports');
       });
@@ -215,10 +399,10 @@ export const storageService = {
         if (!snapshot.empty) {
           snapshot.forEach(docSnap => items.push(docSnap.data() as Investigation));
           items.sort((a, b) => new Date(b.investigationDate).getTime() - new Date(a.investigationDate).getTime());
+          cachedInvestigations = items;
+          localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(items));
+          notifyListeners();
         }
-        cachedInvestigations = items;
-        localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(items));
-        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'investigations');
       });
@@ -229,10 +413,10 @@ export const storageService = {
         const items: ContactPerson[] = [];
         if (!snapshot.empty) {
           snapshot.forEach(docSnap => items.push(docSnap.data() as ContactPerson));
+          cachedContacts = items;
+          localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(items));
+          notifyListeners();
         }
-        cachedContacts = items;
-        localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(items));
-        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'contacts');
       });
@@ -244,10 +428,10 @@ export const storageService = {
         if (!snapshot.empty) {
           snapshot.forEach(docSnap => items.push(docSnap.data() as ControlActivity));
           items.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+          cachedControlActivities = items;
+          localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(items));
+          notifyListeners();
         }
-        cachedControlActivities = items;
-        localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(items));
-        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'control_activities');
       });
@@ -258,10 +442,10 @@ export const storageService = {
         const items: OutbreakEvent[] = [];
         if (!snapshot.empty) {
           snapshot.forEach(docSnap => items.push(docSnap.data() as OutbreakEvent));
+          cachedOutbreaks = items;
+          localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify(items));
+          notifyListeners();
         }
-        cachedOutbreaks = items;
-        localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify(items));
-        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'outbreaks');
       });
@@ -273,10 +457,10 @@ export const storageService = {
         if (!snapshot.empty) {
           snapshot.forEach(docSnap => items.push(docSnap.data() as EpiAlert));
           items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          cachedAlerts = items;
+          localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(items));
+          notifyListeners();
         }
-        cachedAlerts = items;
-        localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(items));
-        notifyListeners();
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'alerts');
       });
@@ -378,7 +562,13 @@ export const storageService = {
     localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(reports));
     notifyListeners();
 
-    // Persist to Cloud Firestore
+    // Persist directly to Firebase Realtime Database and Firestore
+    try {
+      await rtdbSet(rtdbRef(rtdb, `reports/${updatedReport.id}`), updatedReport);
+    } catch (rtdbErr) {
+      console.error('Firebase RTDB Save Report Error:', rtdbErr);
+    }
+
     try {
       await setDoc(doc(db, 'reports', updatedReport.id), updatedReport);
     } catch (err) {
@@ -391,6 +581,12 @@ export const storageService = {
     cachedReports = reports;
     localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(reports));
     notifyListeners();
+
+    try {
+      await rtdbRemove(rtdbRef(rtdb, `reports/${id}`));
+    } catch (rtdbErr) {
+      console.error('Firebase RTDB Delete Report Error:', rtdbErr);
+    }
 
     try {
       await deleteDoc(doc(db, 'reports', id));
@@ -434,10 +630,16 @@ export const storageService = {
       } else if (report.status === 'reported' || report.status === 'pending_investigation') {
         report.status = 'investigating';
       }
-      this.saveReport(report);
+      await this.saveReport(report);
     }
 
     notifyListeners();
+
+    try {
+      await rtdbSet(rtdbRef(rtdb, `investigations/${investigation.id}`), investigation);
+    } catch (rtdbErr) {
+      console.error('Firebase RTDB Save Investigation Error:', rtdbErr);
+    }
 
     try {
       await setDoc(doc(db, 'investigations', investigation.id), investigation);
@@ -451,6 +653,12 @@ export const storageService = {
     cachedInvestigations = investigations;
     localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(investigations));
     notifyListeners();
+
+    try {
+      await rtdbRemove(rtdbRef(rtdb, `investigations/${id}`));
+    } catch (rtdbErr) {
+      console.error('Firebase RTDB Delete Investigation Error:', rtdbErr);
+    }
 
     try {
       await deleteDoc(doc(db, 'investigations', id));
@@ -479,6 +687,12 @@ export const storageService = {
     notifyListeners();
 
     try {
+      await rtdbSet(rtdbRef(rtdb, `contacts/${contact.id}`), contact);
+    } catch (rtdbErr) {
+      console.error('Firebase RTDB Save Contact Error:', rtdbErr);
+    }
+
+    try {
       await setDoc(doc(db, 'contacts', contact.id), contact);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `contacts/${contact.id}`);
@@ -490,6 +704,12 @@ export const storageService = {
     cachedContacts = contacts;
     localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(contacts));
     notifyListeners();
+
+    try {
+      await rtdbRemove(rtdbRef(rtdb, `contacts/${id}`));
+    } catch (rtdbErr) {
+      console.error('Firebase RTDB Delete Contact Error:', rtdbErr);
+    }
 
     try {
       await deleteDoc(doc(db, 'contacts', id));
@@ -516,6 +736,12 @@ export const storageService = {
     cachedControlActivities = activities;
     localStorage.setItem(STORAGE_KEYS.CONTROL_ACTIVITIES, JSON.stringify(activities));
     notifyListeners();
+
+    try {
+      await rtdbSet(rtdbRef(rtdb, `control_activities/${activity.id}`), activity);
+    } catch (rtdbErr) {
+      console.error('Firebase RTDB Save Control Activity Error:', rtdbErr);
+    }
 
     try {
       await setDoc(doc(db, 'control_activities', activity.id), activity);
@@ -545,6 +771,12 @@ export const storageService = {
     notifyListeners();
 
     try {
+      await rtdbRemove(rtdbRef(rtdb, `control_activities/${id}`));
+    } catch (rtdbErr) {
+      console.error('Firebase RTDB Delete Control Activity Error:', rtdbErr);
+    }
+
+    try {
       await deleteDoc(doc(db, 'control_activities', id));
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `control_activities/${id}`);
@@ -571,6 +803,12 @@ export const storageService = {
     notifyListeners();
 
     try {
+      await rtdbSet(rtdbRef(rtdb, `outbreaks/${outbreak.id}`), outbreak);
+    } catch (rtdbErr) {
+      console.error('Firebase RTDB Save Outbreak Error:', rtdbErr);
+    }
+
+    try {
       await setDoc(doc(db, 'outbreaks', outbreak.id), outbreak);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `outbreaks/${outbreak.id}`);
@@ -593,6 +831,12 @@ export const storageService = {
     const targetAlert = alerts.find(a => a.id === id);
     if (targetAlert) {
       try {
+        await rtdbSet(rtdbRef(rtdb, `alerts/${id}`), targetAlert);
+      } catch (rtdbErr) {
+        console.error('Firebase RTDB Mark Alert Error:', rtdbErr);
+      }
+
+      try {
         await setDoc(doc(db, 'alerts', id), targetAlert);
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, `alerts/${id}`);
@@ -613,6 +857,12 @@ export const storageService = {
     notifyListeners();
 
     try {
+      await rtdbSet(rtdbRef(rtdb, `alerts/${alert.id}`), alert);
+    } catch (rtdbErr) {
+      console.error('Firebase RTDB Save Alert Error:', rtdbErr);
+    }
+
+    try {
       await setDoc(doc(db, 'alerts', alert.id), alert);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `alerts/${alert.id}`);
@@ -625,7 +875,7 @@ export const storageService = {
 
   async seedInitialFirestoreData(): Promise<void> {
     try {
-      console.log('Seeding initial surveillance data to Firestore...');
+      console.log('Seeding initial surveillance data to Firebase...');
       for (const r of INITIAL_REPORTS) {
         await this.saveReport(r);
       }
@@ -645,7 +895,7 @@ export const storageService = {
         await this.saveAlert(alt);
       }
     } catch (e) {
-      console.error('Error seeding initial data to Firestore:', e);
+      console.error('Error seeding initial data to Firebase:', e);
     }
   },
 

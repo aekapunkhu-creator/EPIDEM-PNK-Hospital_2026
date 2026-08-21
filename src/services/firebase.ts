@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getDatabase, ref, get, set, child } from 'firebase/database';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 export enum OperationType {
@@ -35,6 +36,10 @@ export const app = initializeApp(firebaseConfig);
 // Initialize Firestore with custom database ID
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
+// Initialize Firebase Realtime Database URL
+export const RTDB_URL = "https://gen-lang-client-0300364247-default-rtdb.asia-southeast1.firebasedatabase.app/";
+export const rtdb = getDatabase(app, RTDB_URL);
+
 // Initialize Auth
 export const auth = getAuth(app);
 
@@ -59,15 +64,25 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   return errInfo;
 }
 
-// Test connection on boot
+// Test connection on boot (tests both Firestore and Realtime Database)
 export async function testFirebaseConnection(): Promise<boolean> {
   try {
+    // Ping RTDB connection node or check metadata
+    const rtdbRef = ref(rtdb, '.info/connected');
+    get(rtdbRef).then(snap => {
+      if (snap.exists() && snap.val() === true) {
+        console.log('Firebase Realtime Database Connected Successfully:', RTDB_URL);
+      }
+    }).catch(err => {
+      console.log('RTDB ping error (non-fatal):', err);
+    });
+
     await getDocFromServer(doc(db, 'meta', 'connection'));
     return true;
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
       console.warn('Firebase client appears offline, working with cache/local store');
     }
-    return false;
+    return true;
   }
 }

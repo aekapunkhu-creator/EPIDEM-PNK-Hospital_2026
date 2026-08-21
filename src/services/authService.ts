@@ -5,7 +5,14 @@ import {
   deleteDoc,
   onSnapshot
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from './firebase';
+import {
+  ref as rtdbRef,
+  set as rtdbSet,
+  remove as rtdbRemove,
+  get as rtdbGet,
+  onValue as rtdbOnValue
+} from 'firebase/database';
+import { db, rtdb, handleFirestoreError, OperationType } from './firebase';
 import { UserAccount, UserSession, RoleType, UserStatus } from '../types';
 
 const AUTH_STORAGE_KEY = 'pnk_epi_current_user_v1';
@@ -247,33 +254,73 @@ export const authService = {
     };
   },
 
-  // Initialize and attach Firestore listener for accounts
+  // Initialize and attach Realtime Database and Firestore listener for accounts
   initAuthListener(): void {
     if (isAuthListenerInitialized) return;
     isAuthListenerInitialized = true;
 
-    // Load initial local
+    // 1. Load initial local cache for immediate rendering
     const raw = localStorage.getItem(USERS_STORAGE_KEY);
     cachedAccounts = raw ? JSON.parse(raw) : INITIAL_USER_ACCOUNTS;
 
+    // 2. Fetch directly from Realtime Database first
+    rtdbGet(rtdbRef(rtdb, 'user_accounts')).then((snap) => {
+      if (snap.exists()) {
+        const val = snap.val();
+        const accounts: UserAccount[] = Array.isArray(val)
+          ? val.filter(Boolean)
+          : Object.values(val);
+        if (accounts.length > 0) {
+          cachedAccounts = accounts;
+          localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(accounts));
+          notifyAuthListeners();
+        }
+      }
+    }).catch((err) => {
+      console.warn('Initial RTDB auth direct fetch notice:', err);
+    });
+
+    // 3. Realtime Database continuous listener for live multi-user sync
+    try {
+      rtdbOnValue(rtdbRef(rtdb, 'user_accounts'), (snap) => {
+        if (snap.exists()) {
+          const val = snap.val();
+          const accounts: UserAccount[] = Array.isArray(val)
+            ? val.filter(Boolean)
+            : Object.values(val);
+          if (accounts.length > 0) {
+            cachedAccounts = accounts;
+            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(accounts));
+            notifyAuthListeners();
+          }
+        }
+      });
+    } catch (rtdbErr) {
+      console.warn('RTDB auth listener notice:', rtdbErr);
+    }
+
+    // 4. Firestore snapshot listener
     try {
       onSnapshot(collection(db, 'user_accounts'), async (snapshot) => {
-        if (snapshot.empty) {
-          // Seed accounts to Firestore
+        if (snapshot.empty && cachedAccounts.length === 0) {
+          // Seed accounts to Firestore and RTDB ONLY IF both are completely empty
           for (const acc of INITIAL_USER_ACCOUNTS) {
             await setDoc(doc(db, 'user_accounts', acc.id), acc);
+            rtdbSet(rtdbRef(rtdb, `user_accounts/${acc.id}`), acc).catch(() => {});
           }
           return;
         }
 
-        const accounts: UserAccount[] = [];
-        snapshot.forEach(docSnap => {
-          accounts.push(docSnap.data() as UserAccount);
-        });
+        if (!snapshot.empty) {
+          const accounts: UserAccount[] = [];
+          snapshot.forEach(docSnap => {
+            accounts.push(docSnap.data() as UserAccount);
+          });
 
-        cachedAccounts = accounts;
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(accounts));
-        notifyAuthListeners();
+          cachedAccounts = accounts;
+          localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(accounts));
+          notifyAuthListeners();
+        }
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'user_accounts');
       });
@@ -333,12 +380,15 @@ export const authService = {
     accounts.push(newAccount);
     this.saveAccounts(accounts);
 
-    // Save to Firestore asynchronously
+    // Save to Firebase Realtime Database & Firestore asynchronously
+    rtdbSet(rtdbRef(rtdb, `user_accounts/${newAccount.id}`), newAccount).catch(err => {
+      console.warn('RTDB add account notice:', err);
+    });
     setDoc(doc(db, 'user_accounts', newAccount.id), newAccount).catch(err => {
       handleFirestoreError(err, OperationType.WRITE, `user_accounts/${newAccount.id}`);
     });
 
-    return { success: true, message: `เพิ่มผู้ใช้งาน "${newAccount.name}" เรียบร้อยแล้ว (บันทึกลง Cloud Firestore)`, account: newAccount };
+    return { success: true, message: `เพิ่มผู้ใช้งาน "${newAccount.name}" เรียบร้อยแล้ว (บันทึกลง Cloud Database)`, account: newAccount };
   },
 
   // Edit / Update existing user account (Admin feature)
@@ -373,7 +423,10 @@ export const authService = {
     accounts[index] = updatedAccount;
     this.saveAccounts(accounts);
 
-    // Save to Firestore asynchronously
+    // Save to Realtime Database & Firestore asynchronously
+    rtdbSet(rtdbRef(rtdb, `user_accounts/${id}`), updatedAccount).catch(err => {
+      console.warn('RTDB update account notice:', err);
+    });
     setDoc(doc(db, 'user_accounts', id), updatedAccount).catch(err => {
       handleFirestoreError(err, OperationType.WRITE, `user_accounts/${id}`);
     });
@@ -420,6 +473,9 @@ export const authService = {
     const filtered = accounts.filter(a => a.id !== id);
     this.saveAccounts(filtered);
 
+    rtdbRemove(rtdbRef(rtdb, `user_accounts/${id}`)).catch(err => {
+      console.warn('RTDB delete account notice:', err);
+    });
     deleteDoc(doc(db, 'user_accounts', id)).catch(err => {
       handleFirestoreError(err, OperationType.DELETE, `user_accounts/${id}`);
     });
@@ -453,6 +509,9 @@ export const authService = {
 
     this.saveAccounts(accounts);
 
+    rtdbSet(rtdbRef(rtdb, `user_accounts/${id}`), account).catch(err => {
+      console.warn('RTDB account status notice:', err);
+    });
     setDoc(doc(db, 'user_accounts', id), account).catch(err => {
       handleFirestoreError(err, OperationType.WRITE, `user_accounts/${id}`);
     });
