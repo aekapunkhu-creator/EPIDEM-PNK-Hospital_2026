@@ -128,6 +128,10 @@ export const DiseaseRegistryView: React.FC<DiseaseRegistryViewProps> = ({
               <option value="Leptospirosis">ไข้ฉี่หนู (Leptospirosis)</option>
               <option value="Melioidosis">เมลิออยโดสิส (Melioidosis)</option>
               <option value="TB">วัณโรค (TB)</option>
+              <option value="Chickenpox">โรคสุกใส (Chickenpox)</option>
+              <option value="Tetanus">โรคบาดทะยัก (Tetanus)</option>
+              <option value="COVID-19">โรคติดเชื้อไวรัสโคโรนา (COVID-19)</option>
+              <option value="STREP_SUIS">โรคติดเชื้อสเตร็พโตคอคคัสซูอิส</option>
             </select>
           </div>
 
@@ -158,8 +162,8 @@ export const DiseaseRegistryView: React.FC<DiseaseRegistryViewProps> = ({
               <option value="all">ทุกตำบล (โพนนาแก้ว)</option>
               <option value="ตำบลนาแก้ว">ตำบลนาแก้ว</option>
               <option value="ตำบลบ้านแป้น">ตำบลบ้านแป้น</option>
-              <option value="ตำบลบ้านแก้ง">ตำบลบ้านแก้ง</option>
-              <option value="ตำบลนาทม">ตำบลนาทม</option>
+              <option value="ตำบลบ้านโพน">ตำบลบ้านโพน</option>
+              <option value="ตำบลนาตงวัฒนา">ตำบลนาตงวัฒนา</option>
               <option value="ตำบลเชียงสือ">ตำบลเชียงสือ</option>
             </select>
           </div>
