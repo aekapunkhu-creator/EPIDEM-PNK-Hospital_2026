@@ -164,8 +164,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ reports }) => {
               return (
                 <div key={sub.id} className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between">
                   <div>
-                    <p className="font-bold text-slate-800">{sub.nameTh}</p>
-                    <p className="text-[10px] text-slate-500">ปชก. {sub.population.toLocaleString()} คน</p>
+                    <p className="font-bold text-slate-800">{sub.nameTh} ({sub.healthCenter})</p>
+                    <p className="text-[10px] text-slate-500">ปชก. {sub.population.toLocaleString()} คน • {sub.villagesCount} หมู่บ้าน</p>
                   </div>
 
                   <div className="text-right">

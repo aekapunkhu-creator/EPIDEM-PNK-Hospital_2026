@@ -132,6 +132,8 @@ export const DiseaseRegistryView: React.FC<DiseaseRegistryViewProps> = ({
               <option value="Tetanus">โรคบาดทะยัก (Tetanus)</option>
               <option value="COVID-19">โรคติดเชื้อไวรัสโคโรนา (COVID-19)</option>
               <option value="STREP_SUIS">โรคติดเชื้อสเตร็พโตคอคคัสซูอิส</option>
+              <option value="RTI_DEAD">อุบัติเหตุจราจรเสียชีวิต</option>
+              <option value="DROWNING">อุบัติเหตุบาดเจ็บ หรือ จมน้ำเสียชีวิต</option>
             </select>
           </div>
 
