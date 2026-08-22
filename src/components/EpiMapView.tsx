@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { DiseaseReport, OutbreakEvent, SubdistrictInfo, VillageInfo } from '../types';
 import { PHON_NA_KAEO_SUBDISTRICTS, PHON_NA_KAEO_VILLAGES, PHON_NA_KAEO_DISTRICT_CENTER, getVillagesBySubdistrict } from '../data/mockData';
+import { DISEASE_GROUPS, getDiseaseColor, getDiseaseInfo } from '../data/diseaseCatalog';
 
 interface EpiMapViewProps {
   reports: DiseaseReport[];
@@ -179,41 +180,9 @@ const HEALTH_FACILITIES = [
   },
 ];
 
-// Helper to get color by disease
-const getDiseaseColor = (disease: string) => {
-  switch (disease) {
-    case 'Dengue':
-      return { main: '#e11d48', bg: '#ffe4e6', border: '#be123c', name: 'ไข้เลือดออก' };
-    case 'HFMD':
-      return { main: '#d97706', bg: '#fef3c7', border: '#b45309', name: 'มือเท้าปาก' };
-    case 'Influenza':
-      return { main: '#2563eb', bg: '#dbeafe', border: '#1d4ed8', name: 'ไข้หวัดใหญ่' };
-    case 'Diarrhea':
-      return { main: '#9333ea', bg: '#f3e8ff', border: '#7e22ce', name: 'อุจจาระร่วง' };
-    case 'Leptospirosis':
-      return { main: '#059669', bg: '#d1fae5', border: '#047857', name: 'ไข้ฉี่หนู' };
-    case 'Melioidosis':
-      return { main: '#dc2626', bg: '#fee2e2', border: '#991b1b', name: 'เมลิออยโดสิส' };
-    case 'TB':
-      return { main: '#c2410c', bg: '#ffedd5', border: '#9a3412', name: 'วัณโรค' };
-    case 'Rabies_Exposure':
-      return { main: '#ca8a04', bg: '#fef9c3', border: '#854d0e', name: 'สงสัยพิษสุนัขบ้า' };
-    case 'COVID-19':
-    case 'COVID19':
-      return { main: '#4f46e5', bg: '#e0e7ff', border: '#3730a3', name: 'โควิด-19' };
-    case 'Chickenpox':
-      return { main: '#ea580c', bg: '#ffedd5', border: '#c2410c', name: 'โรคสุกใส' };
-    case 'Tetanus':
-      return { main: '#b91c1c', bg: '#fee2e2', border: '#7f1d1d', name: 'โรคบาดทะยัก' };
-    case 'STREP_SUIS':
-      return { main: '#701a75', bg: '#fdf4ff', border: '#4a044e', name: 'ไข้หูดับ' };
-    case 'RTI_DEAD':
-      return { main: '#334155', bg: '#f1f5f9', border: '#0f172a', name: 'อุบัติเหตุจราจรเสียชีวิต' };
-    case 'DROWNING':
-      return { main: '#0891b2', bg: '#cffafe', border: '#155e75', name: 'จมน้ำ/บาดเจ็บ' };
-    default:
-      return { main: '#475569', bg: '#f1f5f9', border: '#334155', name: disease };
-  }
+// Local getDiseaseColor fallback wrapped around catalog
+const getDiseaseColorFallback = (disease: string) => {
+  return getDiseaseColor(disease);
 };
 
 export const EpiMapView: React.FC<EpiMapViewProps> = ({
@@ -950,20 +919,15 @@ export const EpiMapView: React.FC<EpiMapViewProps> = ({
                 className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:bg-white focus:border-blue-500 font-medium"
               >
                 <option value="all">ทุกโรคเฝ้าระวัง 506</option>
-                <option value="Dengue">โรคไข้เลือดออก (DHF/DF/DSS)</option>
-                <option value="HFMD">โรคมือ เท้า ปาก (HFMD)</option>
-                <option value="Influenza">โรคไข้หวัดใหญ่ (Influenza)</option>
-                <option value="Diarrhea">อุจจาระร่วงเฉียบพลัน / อาหารเป็นพิษ</option>
-                <option value="Leptospirosis">ไข้ฉี่หนู (Leptospirosis)</option>
-                <option value="Melioidosis">เมลิออยโดสิส (Melioidosis)</option>
-                <option value="TB">วัณโรคปอด (Tuberculosis)</option>
-                <option value="Rabies_Exposure">สัมผัสสัตว์สงสัยโรคพิษสุนัขบ้า</option>
-                <option value="COVID-19">โควิด-19 (COVID-19)</option>
-                <option value="Chickenpox">โรคสุกใส (Chickenpox)</option>
-                <option value="Tetanus">โรคบาดทะยัก (Tetanus)</option>
-                <option value="STREP_SUIS">โรคไข้หูดับ (Streptococcus suis)</option>
-                <option value="RTI_DEAD">อุบัติเหตุจราจรเสียชีวิต (RTI Dead)</option>
-                <option value="DROWNING">จมน้ำ / บาดเจ็บ (Drowning)</option>
+                {DISEASE_GROUPS.map((grp) => (
+                  <optgroup key={grp.groupName} label={grp.groupName} className="font-bold text-slate-900 bg-slate-100">
+                    {grp.diseases.map((d) => (
+                      <option key={d.value} value={d.value} className="font-normal text-slate-800 bg-white">
+                        {d.nameTh}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </div>
           </div>

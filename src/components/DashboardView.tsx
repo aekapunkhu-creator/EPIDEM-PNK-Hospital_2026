@@ -30,6 +30,7 @@ import {
 } from '../types';
 import { PHON_NA_KAEO_SUBDISTRICTS } from '../data/mockData';
 import { NavTab } from './Sidebar';
+import { getDiseaseInfo, getDiseaseColor } from '../data/diseaseCatalog';
 
 interface DashboardViewProps {
   reports: DiseaseReport[];
@@ -73,39 +74,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const diseaseCounts: Record<string, { count: number; nameTh: string; color: string; badge: string }> = {};
   reports.forEach(r => {
     if (!diseaseCounts[r.disease]) {
-      let color = 'bg-slate-100 text-slate-700 border-slate-200';
+      const info = getDiseaseInfo(r.disease);
+      const nameTh = r.diseaseNameTh || info?.nameTh || r.disease;
+      
+      let color = 'bg-slate-50 text-slate-700 border-slate-200';
       let badge = 'bg-slate-100 text-slate-800';
-      if (r.disease === 'Dengue') {
+      if (r.disease === 'Dengue' || r.disease === 'DENGUE_FEVER' || r.disease === 'DENGUE_SHOCK') {
         color = 'bg-rose-50 text-rose-700 border-rose-200';
         badge = 'bg-rose-100 text-rose-700';
       } else if (r.disease === 'HFMD') {
         color = 'bg-amber-50 text-amber-700 border-amber-200';
         badge = 'bg-amber-100 text-amber-700';
-      } else if (r.disease === 'Influenza') {
+      } else if (r.disease === 'Influenza' || r.disease === 'INFLUENZA') {
         color = 'bg-blue-50 text-blue-700 border-blue-200';
         badge = 'bg-blue-100 text-blue-700';
-      } else if (r.disease === 'Diarrhea') {
+      } else if (r.disease === 'Diarrhea' || r.disease === 'ACUTE_DIARRHEA' || r.disease === 'FOOD_POISONING') {
         color = 'bg-purple-50 text-purple-700 border-purple-200';
         badge = 'bg-purple-100 text-purple-700';
-      } else if (r.disease === 'Leptospirosis') {
+      } else if (r.disease === 'Leptospirosis' || r.disease === 'LEPTOSPIROSIS') {
         color = 'bg-emerald-50 text-emerald-700 border-emerald-200';
         badge = 'bg-emerald-100 text-emerald-700';
-      } else if (r.disease === 'Melioidosis') {
+      } else if (r.disease === 'Melioidosis' || r.disease === 'MELIOIDOSIS') {
         color = 'bg-red-50 text-red-700 border-red-200';
         badge = 'bg-red-100 text-red-700';
-      } else if (r.disease === 'TB') {
+      } else if (r.disease === 'TB' || r.disease === 'XDR_TB') {
         color = 'bg-orange-50 text-orange-700 border-orange-200';
         badge = 'bg-orange-100 text-orange-700';
-      } else if (r.disease === 'Rabies_Exposure') {
+      } else if (r.disease === 'Rabies_Exposure' || r.disease === 'RABIES') {
         color = 'bg-yellow-50 text-yellow-700 border-yellow-200';
         badge = 'bg-yellow-100 text-yellow-700';
       } else if (r.disease === 'COVID-19' || (r.disease as string) === 'COVID19') {
         color = 'bg-indigo-50 text-indigo-700 border-indigo-200';
         badge = 'bg-indigo-100 text-indigo-700';
-      } else if (r.disease === 'Chickenpox') {
+      } else if (r.disease === 'Chickenpox' || r.disease === 'VARICELLA') {
         color = 'bg-amber-50 text-amber-800 border-amber-200';
         badge = 'bg-amber-100 text-amber-800';
-      } else if (r.disease === 'Tetanus') {
+      } else if (r.disease === 'Tetanus' || r.disease === 'TETANUS') {
         color = 'bg-rose-50 text-rose-800 border-rose-300';
         badge = 'bg-rose-100 text-rose-800';
       } else if (r.disease === 'STREP_SUIS') {
@@ -119,7 +123,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         badge = 'bg-cyan-100 text-cyan-800';
       }
       
-      diseaseCounts[r.disease] = { count: 0, nameTh: r.diseaseNameTh, color, badge };
+      diseaseCounts[r.disease] = { count: 0, nameTh, color, badge };
     }
     diseaseCounts[r.disease].count += 1;
   });

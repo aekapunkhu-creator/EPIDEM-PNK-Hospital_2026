@@ -25,6 +25,7 @@ import {
 } from '../types';
 import { PHON_NA_KAEO_SUBDISTRICTS, PHON_NA_KAEO_VILLAGES, getVillagesBySubdistrict } from '../data/mockData';
 import { storageService } from '../services/storageService';
+import { DISEASE_GROUPS, getDiseaseInfo, ALL_DISEASES } from '../data/diseaseCatalog';
 
 interface ReportDiseaseModalProps {
   isOpen: boolean;
@@ -33,24 +34,6 @@ interface ReportDiseaseModalProps {
   user: UserSession;
   initialData?: DiseaseReport | null;
 }
-
-const DISEASE_OPTIONS: { category: DiseaseCategory; nameTh: string; icd10: string }[] = [
-  { category: 'Dengue', nameTh: 'โรคไข้เลือดออก (DHF/DF/DSS)', icd10: 'A91' },
-  { category: 'HFMD', nameTh: 'โรคมือ เท้า ปาก (HFMD)', icd10: 'B08.4' },
-  { category: 'Influenza', nameTh: 'โรคไข้หวัดใหญ่ (Influenza)', icd10: 'J10.1' },
-  { category: 'Diarrhea', nameTh: 'โรคอุจจาระร่วงเฉียบพลัน / อาหารเป็นพิษ', icd10: 'A05.9' },
-  { category: 'Leptospirosis', nameTh: 'โรคเลปโตสไปโรซิส (ไข้ฉี่หนู)', icd10: 'A27.9' },
-  { category: 'Melioidosis', nameTh: 'โรคเมลิออยโดสิส (Melioidosis)', icd10: 'A24.1' },
-  { category: 'TB', nameTh: 'วัณโรคปอด (Tuberculosis)', icd10: 'A15.0' },
-  { category: 'Rabies_Exposure', nameTh: 'สัมผัสสัตว์สงสัยโรคพิษสุนัขบ้า', icd10: 'Z20.3' },
-  { category: 'COVID-19', nameTh: 'โรคติดเชื้อไวรัสโคโรนา 2019 (COVID-19)', icd10: 'U07.1' },
-  { category: 'Chickenpox', nameTh: 'โรคสุกใส (Chickenpox)', icd10: 'B01.9' },
-  { category: 'Tetanus', nameTh: 'โรคบาดทะยัก (Tetanus)', icd10: 'A35' },
-  { category: 'STREP_SUIS', nameTh: 'โรคติดเชื้อสเตร็พโตคอคคัสซูอิส (ไข้หูดับ)', icd10: 'A49.1' },
-  { category: 'RTI_DEAD', nameTh: 'อุบัติเหตุจราจรเสียชีวิต (RTI Dead)', icd10: 'V89.2' },
-  { category: 'DROWNING', nameTh: 'อุบัติเหตุบาดเจ็บ หรือ จมน้ำเสียชีวิต', icd10: 'W65' },
-  { category: 'Other', nameTh: 'โรคติดต่ออื่นๆ ที่ต้องเฝ้าระวัง', icd10: 'Z00' },
-];
 
 export const ReportDiseaseModal: React.FC<ReportDiseaseModalProps> = ({
   isOpen,
@@ -129,52 +112,15 @@ export const ReportDiseaseModal: React.FC<ReportDiseaseModalProps> = ({
   // Handle disease change to auto-suggest ICD-10 & clinical preset
   const handleDiseaseChange = (cat: DiseaseCategory) => {
     setDisease(cat);
-    const found = DISEASE_OPTIONS.find(d => d.category === cat);
+    const found = getDiseaseInfo(cat);
     if (found) {
       setDiseaseNameTh(found.nameTh);
       setIcd10(found.icd10);
-      if (cat === 'Dengue') {
-        setLabTestName('Dengue NS1 Ag / Dengue IgM');
-        setChiefComplaint('ไข้สูงลอย 3 วัน ปวดกระบอกตา ปวดเมื่อยตามตัว มีจุดเลือดออก');
-      } else if (cat === 'HFMD') {
-        setLabTestName('Enterovirus / Coxsackie PCR');
-        setChiefComplaint('มีแผลในปาก ตุ่มน้ำใสที่ฝ่ามือและฝ่าเท้า มีไข้');
-      } else if (cat === 'Influenza') {
-        setLabTestName('Influenza A/B Rapid Ag');
-        setChiefComplaint('ไข้สูง ไอ เจ็บคอ ปวดกล้ามเนื้อ');
-      } else if (cat === 'Leptospirosis') {
-        setLabTestName('Leptospira IgM Rapid Test / MAT');
-        setChiefComplaint('ไข้สูง หนาวสั่น ปวดน่องรุนแรง ตาแดง ประวัติลุยน้ำขัง');
-      } else if (cat === 'Melioidosis') {
-        setLabTestName('Burkholderia pseudomallei Hemoculture / IFA');
-        setChiefComplaint('ไข้สูงเรื้อรัง ปอดอักเสบ หรือมีฝีหนอง ประวัติสัมผัสดิน/น้ำ');
-      } else if (cat === 'TB') {
-        setLabTestName('Sputum AFB / GeneXpert MTB/RIF');
-        setChiefComplaint('ไอเรื้อรังเกิน 2 สัปดาห์ ไข้ต่ำๆ ตอนเย็น น้ำหนักลด เหงื่อออกตอนกลางคืน');
-      } else if (cat === 'Rabies_Exposure') {
-        setLabTestName('Rabies Post-Exposure Assessment (RIG + Vaccine)');
-        setChiefComplaint('ถูกสุนัข/แมวกัดหรือข่วน มีแผลเลือดออก');
-      } else if (cat === 'COVID-19' || (cat as string) === 'COVID19') {
-        setLabTestName('SARS-CoV-2 Antigen Rapid Test (ATK) / RT-PCR');
-        setChiefComplaint('ไข้ ไอ เจ็บคอ มีน้ำมูก อ่อนเพลีย');
-      } else if (cat === 'Chickenpox') {
-        setLabTestName('Clinical Diagnosis / VZV PCR');
-        setChiefComplaint('มีไข้ ตุ่มแดงกลายเป็นตุ่มน้ำใส คัน กระจายตามลำตัวและใบหน้า');
-      } else if (cat === 'Tetanus') {
-        setLabTestName('Clinical Diagnosis / Wound Culture');
-        setChiefComplaint('กล้ามเนื้อขากรรไกรเกร็ง (Trismus) หลังแอ่น ประวัติมีบาดแผลสัมผัสดิน');
-      } else if (cat === 'STREP_SUIS') {
-        setLabTestName('Streptococcus suis Hemoculture / CSF Culture');
-        setChiefComplaint('ไข้สูง หนาวสั่น ปวดศีรษะรุนแรง เยื่อหุ้มสมองอักเสบ สูญเสียการได้ยิน ประวัติรับประทานหมูดิบ');
-      } else if (cat === 'RTI_DEAD') {
-        setLabTestName('Post-Mortem / Forensic Examination');
-        setChiefComplaint('อุบัติเหตุจราจรทางบก นำส่ง รพ. เสียชีวิตในที่เกิดเหตุหรือที่ รพ.');
-      } else if (cat === 'DROWNING') {
-        setLabTestName('Emergency Resuscitation / Chest X-Ray');
-        setChiefComplaint('อุบัติเหตุจมน้ำ บาดเจ็บหรือเสียชีวิต');
-      } else if (cat === 'Diarrhea') {
-        setLabTestName('Stool Exam / Culture');
-        setChiefComplaint('ถ่ายเหลวเป็นน้ำหลายครั้ง คลื่นไส้ อาเจียน ปวดท้อง');
+      if (found.defaultLab) {
+        setLabTestName(found.defaultLab);
+      }
+      if (found.defaultChiefComplaint) {
+        setChiefComplaint(found.defaultChiefComplaint);
       }
     }
   };
@@ -550,8 +496,14 @@ export const ReportDiseaseModal: React.FC<ReportDiseaseModalProps> = ({
                   onChange={(e) => handleDiseaseChange(e.target.value as DiseaseCategory)}
                   className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-blue-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 >
-                  {DISEASE_OPTIONS.map(d => (
-                    <option key={d.category} value={d.category}>{d.nameTh}</option>
+                  {DISEASE_GROUPS.map((grp) => (
+                    <optgroup key={grp.groupName} label={grp.groupName} className="font-bold text-slate-900 bg-slate-100">
+                      {grp.diseases.map((d) => (
+                        <option key={d.value} value={d.value} className="font-normal text-slate-800 bg-white">
+                          {d.nameTh} ({d.icd10})
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>

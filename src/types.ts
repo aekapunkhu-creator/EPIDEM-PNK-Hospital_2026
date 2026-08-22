@@ -15,22 +15,109 @@ export type RoleType =
   | 'executive'; // ผู้บริหาร
 
 export type DiseaseCategory = 
-  | 'Dengue' // ไข้เลือดออก (DHF/DF/DSS)
-  | 'HFMD' // โรคมือเท้าปาก
-  | 'Influenza' // ไข้หวัดใหญ่
-  | 'Diarrhea' // อุจจาระร่วงเฉียบพลัน/อาหารเป็นพิษ
-  | 'TB' // วัณโรค
-  | 'Leptospirosis' // ไข้ฉี่หนู
-  | 'Melioidosis' // เมลิออยโดสิส
-  | 'Rabies_Exposure' // สัมผัสสัตว์สงสัยโรคพิษสุนัขบ้า
-  | 'COVID-19' // โควิด-19
-  | 'COVID19' // โควิด-19 (Alias)
-  | 'Chickenpox' // โรคสุกใส
-  | 'Tetanus' // โรคบาดทะยัก
-  | 'STREP_SUIS' // โรคติดเชื้อสเตร็พโตคอคคัสซูอิส (ไข้หูดับ)
-  | 'RTI_DEAD' // อุบัติเหตุจราจรเสียชีวิต
-  | 'DROWNING' // อุบัติเหตุบาดเจ็บ หรือ จมน้ำเสียชีวิต
-  | 'Other'; // โรคอื่นๆ
+  // กลุ่มที่ 1: โรคติดต่ออันตราย
+  | 'PLAGUE'
+  | 'SMALLPOX'
+  | 'CCHF'
+  | 'WEST_NILE'
+  | 'YELLOW_FEVER'
+  | 'LASSA_FEVER'
+  | 'NIPAH'
+  | 'MARBURG'
+  | 'EBOLA'
+  | 'HENDRA'
+  | 'SARS'
+  | 'MERS'
+  | 'XDR_TB'
+  // กลุ่มที่ 2.1: ระบบทางเดินอาหารและน้ำ
+  | 'CHOLERA'
+  | 'FOOD_POISONING'
+  | 'SHIGELLOSIS'
+  | 'AMOEBIASIS'
+  | 'TYPHOID'
+  | 'PARATYPHOID'
+  | 'LIVER_FLUKE'
+  | 'BOTULISM'
+  | 'MUSHROOM_POISONING'
+  | 'HEP_A'
+  | 'HEP_E'
+  // กลุ่มที่ 2.2: ระบบทางเดินหายใจ
+  | 'INFLUENZA'
+  | 'PNEUMONIA'
+  | 'COVID-19'
+  | 'COVID19'
+  // กลุ่มที่ 2.3: ป้องกันได้ด้วยวัคซีน
+  | 'RUBELLA'
+  | 'RUBELLA_COMPLICATED'
+  | 'VARICELLA'
+  | 'POLIO'
+  | 'MEASLES'
+  | 'MEASLES_COMPLICATED'
+  | 'DIPHTHERIA'
+  | 'PERTUSSIS'
+  | 'TETANUS'
+  | 'JAPANESE_ENCEPHALITIS'
+  | 'MUMPS'
+  | 'NEONATAL_TETANUS'
+  | 'CONGENITAL_RUBELLA'
+  // กลุ่มที่ 2.5: ระบบประสาทส่วนกลาง
+  | 'MENINGOCOCCAL_MENINGITIS'
+  | 'ENCEPHALITIS'
+  | 'MENINGITIS_UNSPECIFIED'
+  // กลุ่มที่ 2.6: นำโดยแมลง
+  | 'DENGUE_FEVER'
+  | 'DENGUE_SHOCK'
+  | 'MALARIA'
+  | 'SCRUB_TYPHUS'
+  | 'DENGUE'
+  | 'CHIKUNGUNYA'
+  | 'ZIKA'
+  // กลุ่มที่ 2.7: ทางเพศสัมพันธ์
+  | 'SYPHILIS'
+  | 'CONGENITAL_SYPHILIS'
+  | 'GONORRHEA'
+  | 'NGU'
+  | 'CHANCROID'
+  | 'LGV'
+  | 'GENITAL_HERPES'
+  | 'GENITAL_WARTS'
+  | 'HEP_B_ACUTE'
+  | 'HEP_C_ACUTE'
+  | 'HEP_D_ACUTE'
+  // กลุ่มที่ 2.8: จากการสัมผัส
+  | 'HFMD'
+  | 'MELIOIDOSIS'
+  | 'ENTEROVIRUS_FEVER'
+  | 'MPOX'
+  // กลุ่มที่ 2.9: จากสัตว์สู่คน
+  | 'RABIES'
+  | 'LEPTOSPIROSIS'
+  | 'ANTHRAX'
+  | 'TRICHINOSIS'
+  | 'STREP_SUIS'
+  | 'BRUCELLOSIS'
+  | 'AVIAN_INFLUENZA'
+  // กลุ่มที่ 3: เฝ้าระวังกลุ่มอาการ
+  | 'ACUTE_DIARRHEA'
+  | 'VIRAL_CONJUNCTIVITIS'
+  | 'AFP'
+  | 'AEFI'
+  | 'FEVER_UNKNOWN'
+  | 'VIRAL_RASH'
+  // Legacy / Other
+  | 'Dengue'
+  | 'Influenza'
+  | 'Diarrhea'
+  | 'TB'
+  | 'Leptospirosis'
+  | 'Melioidosis'
+  | 'Rabies_Exposure'
+  | 'Chickenpox'
+  | 'Tetanus'
+  | 'RTI_DEAD'
+  | 'DROWNING'
+  | 'Other'
+  | (string & {});
 
 export type CaseType = 'Suspected' | 'Probable' | 'Confirmed';
 
@@ -258,6 +345,17 @@ export interface ControlActivity {
   createdAt: string;
 }
 
+export interface EocDirective {
+  id: string;
+  commandText: string;
+  assignedSection: 'Operations' | 'Planning' | 'Logistics' | 'Finance' | 'RiskComm';
+  assignedTo: string;
+  dueDate: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  createdAt: string;
+  completedAt?: string;
+}
+
 export interface OutbreakEvent {
   id: string;
   title: string;
@@ -277,12 +375,25 @@ export interface OutbreakEvent {
   contactsCount: number;
   populationAtRisk: number;
   attackRatePercent: number;
+  secondaryAttackRatePercent?: number;
+  caseFatalityRatePercent?: number;
   leadInvestigator: string;
   centerLat: number;
   centerLng: number;
   summary: string;
   controlMeasuresExecuted: string[];
   resolvedDate?: string;
+  // EOC Structure & Operations
+  eocLevel?: 'Level 1' | 'Level 2' | 'Level 3' | 'Standby' | 'Closed';
+  eocActivatedAt?: string;
+  eocCommander?: string; // ผู้บัญชาการเหตุการณ์ (Incident Commander)
+  eocOperationsLead?: string; // ฝ่ายปฏิบัติการ
+  eocPlanningLead?: string; // ฝ่ายตระหนักรู้สถานการณ์ & แผน
+  eocLogisticsLead?: string; // ฝ่ายส่งกำลังบำรุง
+  eocRiskCommLead?: string; // ฝ่ายสื่อสารความเสี่ยง
+  eocDirectives?: EocDirective[]; // ข้อสั่งการ EOC
+  outbreakType?: 'Point Source' | 'Common Source' | 'Propagated (Person-to-Person)' | 'Vector-Borne';
+  estimatedIncubationPeriod?: string;
 }
 
 export interface EpiAlert {

@@ -24,6 +24,7 @@ import {
   Crown
 } from 'lucide-react';
 import { DiseaseReport, DiseaseCategory, CaseStatus, UserSession } from '../types';
+import { DISEASE_GROUPS, getDiseaseInfo } from '../data/diseaseCatalog';
 
 interface DiseaseRegistryViewProps {
   reports: DiseaseReport[];
@@ -120,20 +121,16 @@ export const DiseaseRegistryView: React.FC<DiseaseRegistryViewProps> = ({
               onChange={(e) => setFilterDisease(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             >
-              <option value="all">ทุกกลุ่มโรค</option>
-              <option value="Dengue">โรคไข้เลือดออก (Dengue)</option>
-              <option value="HFMD">โรคมือเท้าปาก (HFMD)</option>
-              <option value="Influenza">โรคไข้หวัดใหญ่ (Influenza)</option>
-              <option value="Diarrhea">อุจจาระร่วง / อาหารเป็นพิษ</option>
-              <option value="Leptospirosis">ไข้ฉี่หนู (Leptospirosis)</option>
-              <option value="Melioidosis">เมลิออยโดสิส (Melioidosis)</option>
-              <option value="TB">วัณโรค (TB)</option>
-              <option value="Chickenpox">โรคสุกใส (Chickenpox)</option>
-              <option value="Tetanus">โรคบาดทะยัก (Tetanus)</option>
-              <option value="COVID-19">โรคติดเชื้อไวรัสโคโรนา (COVID-19)</option>
-              <option value="STREP_SUIS">โรคติดเชื้อสเตร็พโตคอคคัสซูอิส</option>
-              <option value="RTI_DEAD">อุบัติเหตุจราจรเสียชีวิต</option>
-              <option value="DROWNING">อุบัติเหตุบาดเจ็บ หรือ จมน้ำเสียชีวิต</option>
+              <option value="all">ทุกกลุ่มโรคเฝ้าระวัง 506</option>
+              {DISEASE_GROUPS.map((grp) => (
+                <optgroup key={grp.groupName} label={grp.groupName} className="font-bold text-slate-900 bg-slate-100">
+                  {grp.diseases.map((d) => (
+                    <option key={d.value} value={d.value} className="font-normal text-slate-800 bg-white">
+                      {d.nameTh}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
             </select>
           </div>
 

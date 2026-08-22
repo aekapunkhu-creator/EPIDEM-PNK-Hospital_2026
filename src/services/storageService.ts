@@ -872,6 +872,25 @@ export const storageService = {
     }
   },
 
+  async deleteOutbreak(id: string): Promise<void> {
+    const outbreaks = this.getOutbreaks().filter(o => o.id !== id);
+    cachedOutbreaks = outbreaks;
+    localStorage.setItem(STORAGE_KEYS.OUTBREAKS, JSON.stringify(outbreaks));
+    notifyListeners();
+
+    try {
+      await rtdbRemove(rtdbRef(rtdb, `outbreaks/${id}`));
+    } catch (rtdbErr) {
+      console.error('Firebase RTDB Delete Outbreak Error:', rtdbErr);
+    }
+
+    try {
+      await deleteDoc(doc(db, 'outbreaks', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `outbreaks/${id}`);
+    }
+  },
+
   // 6. Alerts
   getAlerts(): EpiAlert[] {
     if (cachedAlerts.length > 0) return cachedAlerts;

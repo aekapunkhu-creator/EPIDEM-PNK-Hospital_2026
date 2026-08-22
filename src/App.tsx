@@ -347,6 +347,20 @@ export function App() {
     setOutbreaks(storageService.getOutbreaks());
   };
 
+  const handleDeleteOutbreakRequest = (id: string) => {
+    const target = outbreaks.find(o => o.id === id);
+    setDeleteItemInfo({
+      id,
+      description: target?.title || `เหตุการณ์ระบาด ID: ${id}`,
+      action: () => {
+        storageService.deleteOutbreak(id);
+        setOutbreaks(storageService.getOutbreaks());
+        setIsDeleteModalOpen(false);
+      }
+    });
+    setIsDeleteModalOpen(true);
+  };
+
   // Handlers for Alerts
   const handleMarkAlertRead = (id: string) => {
     storageService.markAlertAsRead(id);
@@ -539,8 +553,17 @@ export function App() {
               outbreaks={outbreaks}
               reports={reports}
               contacts={contacts}
+              controlActivities={controlActivities}
+              investigations={investigations}
+              currentUser={user}
               onSelectOutbreak={() => {}}
               onSaveOutbreak={handleSaveOutbreak}
+              onDeleteOutbreak={handleDeleteOutbreakRequest}
+              onSaveReport={handleSaveReport}
+              onSaveContact={handleSaveContact}
+              onSaveControlActivity={handleAddControlActivity}
+              onOpenInvestigationModal={handleOpenCreateInvestigation}
+              onNavigateToTab={(tab) => setActiveTab(tab)}
             />
           )}
 
