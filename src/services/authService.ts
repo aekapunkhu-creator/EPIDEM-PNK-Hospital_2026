@@ -18,6 +18,10 @@ import { UserAccount, UserSession, RoleType, UserStatus } from '../types';
 const AUTH_STORAGE_KEY = 'pnk_epi_current_user_v1';
 const USERS_STORAGE_KEY = 'pnk_epi_users_accounts_v2';
 
+function cleanForFirebase<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data));
+}
+
 // Initial pre-configured user accounts with distinct roles and subdistrict assignments
 export const INITIAL_USER_ACCOUNTS: UserAccount[] = [
   {
@@ -381,10 +385,10 @@ export const authService = {
     this.saveAccounts(accounts);
 
     // Save to Firebase Realtime Database & Firestore asynchronously
-    rtdbSet(rtdbRef(rtdb, `user_accounts/${newAccount.id}`), newAccount).catch(err => {
+    rtdbSet(rtdbRef(rtdb, `user_accounts/${newAccount.id}`), cleanForFirebase(newAccount)).catch(err => {
       console.warn('RTDB add account notice:', err);
     });
-    setDoc(doc(db, 'user_accounts', newAccount.id), newAccount).catch(err => {
+    setDoc(doc(db, 'user_accounts', newAccount.id), cleanForFirebase(newAccount)).catch(err => {
       handleFirestoreError(err, OperationType.WRITE, `user_accounts/${newAccount.id}`);
     });
 
@@ -424,10 +428,10 @@ export const authService = {
     this.saveAccounts(accounts);
 
     // Save to Realtime Database & Firestore asynchronously
-    rtdbSet(rtdbRef(rtdb, `user_accounts/${id}`), updatedAccount).catch(err => {
+    rtdbSet(rtdbRef(rtdb, `user_accounts/${id}`), cleanForFirebase(updatedAccount)).catch(err => {
       console.warn('RTDB update account notice:', err);
     });
-    setDoc(doc(db, 'user_accounts', id), updatedAccount).catch(err => {
+    setDoc(doc(db, 'user_accounts', id), cleanForFirebase(updatedAccount)).catch(err => {
       handleFirestoreError(err, OperationType.WRITE, `user_accounts/${id}`);
     });
 
@@ -509,10 +513,10 @@ export const authService = {
 
     this.saveAccounts(accounts);
 
-    rtdbSet(rtdbRef(rtdb, `user_accounts/${id}`), account).catch(err => {
+    rtdbSet(rtdbRef(rtdb, `user_accounts/${id}`), cleanForFirebase(account)).catch(err => {
       console.warn('RTDB account status notice:', err);
     });
-    setDoc(doc(db, 'user_accounts', id), account).catch(err => {
+    setDoc(doc(db, 'user_accounts', id), cleanForFirebase(account)).catch(err => {
       handleFirestoreError(err, OperationType.WRITE, `user_accounts/${id}`);
     });
 
@@ -520,21 +524,17 @@ export const authService = {
     return { success: true, message: `${statusText} บัญชี "${account.name}" สำเร็จ`, account };
   },
 
-  // Get current logged in user session (returns null if not logged in)
+  // Get current logged in user session (persists across page reloads/refreshes)
   getCurrentUser(): UserSession | null {
     const raw = sessionStorage.getItem(AUTH_STORAGE_KEY) || localStorage.getItem(AUTH_STORAGE_KEY);
     if (raw) {
       try {
         const session: UserSession = JSON.parse(raw);
-        // Verify account exists and is not suspended
-        const accounts = this.getAccounts();
-        const account = accounts.find(a => a.id === session.userId || a.username === session.username);
-        if (account && account.status !== 'suspended') {
+        if (session && session.role) {
           return session;
         }
       } catch {}
     }
-    // Return null so user is prompted with the Login Screen
     return null;
   },
 
